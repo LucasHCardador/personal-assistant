@@ -1,18 +1,37 @@
 # Personal Assistant
 
-A self-hosted personal assistant connected to **Telegram**, powered by **Gemini** multimodal AI, and integrated with the **Google ecosystem** (Calendar, Meet, and Sheets).
+Assistente pessoal self-hosted conectado ao **Telegram**, com inteligência multimodal via **Gemini** e integrado ao **ecossistema Google** (Google Calendar, Google Meet e Google Sheets).
 
-Designed to run 24/7 via Docker on a VPS or home server, with all personal data, credentials, and preferences strictly externalized via environment variables.
+O projeto foi desenhado para rodar 24/7 em container Docker (em uma VPS, servidor Linux ou máquina local), mantendo todas as credenciais, preferências e identificadores estritamente em variáveis de ambiente (`.env`).
 
-## Features (Planned & Modular)
+---
 
-- **Multimodal Telegram Interface**: Understands free-form text, voice messages, and receipt/odometer photos natively via Gemini.
-- **Google Calendar & Meet**: Schedules appointments, checks upcoming events, and generates Google Meet links (with inline confirmation buttons for external invites or deletions).
-- **Google Sheets (Car & Household Budget)**: Logs fuel refills, vehicle maintenance, and daily expenses into structured spreadsheets.
-- **Proactive Scheduler**: Sends daily morning summaries, upcoming event alerts, vehicle preventive maintenance reminders (by mileage and date), and custom recurring reminders.
-- **User Whitelist**: Restricts bot access to authorized Telegram user IDs configured in `.env`.
+## Escopo e Para que Serve
 
-## Architecture
+O objetivo do assistente é centralizar a organização pessoal e familiar diretamente no **Telegram** — eliminando a necessidade de abrir planilhas, apps de agenda ou anotações separadas no meio da rotina.
+
+### Como ele auxilia no dia a dia
+
+1. **Controle Veicular e Plano de Manutenção (Google Sheets)**
+   - Registre abastecimentos informando valor, litros e quilometragem atual (por texto, áudio ou foto do cupom/painel).
+   - Acompanhe despesas como seguro, IPVA, lavagem e revisões.
+   - Receba alertas proativos quando a quilometragem ou a data se aproximarem da próxima troca de óleo, rodízio de pneus ou revisão preventiva.
+
+2. **Orçamento Doméstico e Gastos Diários (Google Sheets)**
+   - Envie mensagens rápidas ao sair do mercado, farmácia ou restaurante (ex: *"Gastei R$ 245 no mercado hoje no débito"* ou foto da nota fiscal).
+   - Os lançamentos são categorizados automaticamente em uma planilha orçamentária com metas mensais e resumo por categoria.
+
+3. **Agenda, Consultas e Reuniões (Google Calendar & Google Meet)**
+   - Agende compromissos pessoais, consultas médicas da família, eventos da igreja e reuniões por linguagem natural.
+   - Crie eventos já com link do **Google Meet** e convide participantes (com confirmação rápida por botões no Telegram antes de enviar convites externos ou excluir eventos).
+
+4. **Lembretes Proativos e Resumo Matinal**
+   - Receba um resumo diário no horário configurado em `MORNING_SUMMARY_TIME` com os compromissos do dia, lembretes e alertas do carro.
+   - Receba notificações antecipadas de compromissos e crie lembretes avulsos ou recorrentes direto pelo chat.
+
+---
+
+## Arquitetura do Projeto
 
 ```text
 personal-assistant/
@@ -23,64 +42,109 @@ personal-assistant/
 ├── .env.example
 ├── docs/
 │   └── research/          # Architecture Decision Records (ADRs)
-├── scripts/               # One-off OAuth and Google Sheets setup scripts
+├── scripts/               # Scripts utilitários (OAuth Google e setup das planilhas)
 ├── src/
-│   ├── main.py            # Service entrypoint
-│   ├── config.py          # Environment-driven configuration (Pydantic)
-│   ├── bot/               # Telegram handlers, whitelist middleware, inline callbacks
-│   ├── agent/             # Gemini multimodal client, prompts, and tool registry
-│   ├── integrations/      # Google OAuth 2.0, Calendar/Meet, and Sheets clients
-│   ├── scheduler/         # Proactive background jobs (APScheduler)
-│   └── storage/           # Local SQLite persistence (reminders, undo history)
-└── tests/                 # Automated test suite
+│   ├── main.py            # Entrypoint da aplicação
+│   ├── config.py          # Configurações via variáveis de ambiente (Pydantic)
+│   ├── bot/               # Handlers do Telegram, whitelist e botões inline
+│   ├── agent/             # Cliente Gemini multimodal, prompts e registry de tools
+│   ├── integrations/      # Integrações Google (OAuth 2.0, Calendar/Meet, Sheets)
+│   ├── scheduler/         # Motor proativo (resumo matinal, alertas e manutenções)
+│   └── storage/           # Persistência local SQLite (lembretes, histórico de undo)
+└── tests/                 # Suíte de testes automatizados
 ```
 
-For full architectural details, see [docs/research/adr-001-arquitetura-e-viabilizacao.md](docs/research/adr-001-arquitetura-e-viabilizacao.md).
+Para detalhes completos da arquitetura e decisões técnicas, consulte [docs/research/adr-001-arquitetura-e-viabilizacao.md](docs/research/adr-001-arquitetura-e-viabilizacao.md).
 
-## Prerequisites
+---
 
-1. **Docker & Docker Compose** (recommended) or **Python 3.12+**.
-2. **Telegram Bot Token**: Create a bot with [@BotFather](https://t.me/BotFather) and get your numeric user ID via [@userinfobot](https://t.me/userinfobot).
-3. **Gemini API Key**: Generate a key in [Google AI Studio](https://aistudio.google.com/).
-4. **Google Cloud OAuth 2.0 Credentials**:
-   - Create a project in [Google Cloud Console](https://console.cloud.google.com/).
-   - Enable **Google Calendar API**, **Google Sheets API**, and **Google Drive API**.
-   - Create an OAuth 2.0 Client ID (Desktop App) and download the JSON file as `credentials/credentials.json`.
+## Pré-requisitos
 
-## Quick Start
+1. **Docker e Docker Compose** (recomendado) ou **Python 3.12+**.
+2. **Conta no Telegram** para criar o bot e obter seu ID numérico.
+3. **Chave de API do Gemini** obtida no [Google AI Studio](https://aistudio.google.com/).
+4. **Projeto no Google Cloud Console** (para integração com Calendar, Meet e Sheets):
+   - Ative as APIs: **Google Calendar API**, **Google Sheets API** e **Google Drive API**.
+   - Crie um **ID do cliente OAuth 2.0** (tipo *App para computador / Desktop App*) e salve o arquivo JSON como `credentials/credentials.json`.
 
-1. **Clone the repository and configure your environment:**
+---
 
-   ```bash
-   cp .env.example .env
-   mkdir -p credentials data
-   ```
+## Como Linkar com o Telegram
 
-   Edit `.env` with your `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_IDS`, `GEMINI_API_KEY`, and preferred `TIMEZONE`.
+1. **Criar o Bot**:
+   - Abra o [@BotFather](https://t.me/BotFather) no Telegram.
+   - Envie `/newbot`, escolha um nome e um `@username` terminado em `bot`.
+   - Copie o **Token HTTP da API** gerado.
 
-2. **Run with Docker Compose:**
+2. **Descobrir seu User ID (Whitelist)**:
+   - Por segurança, o assistente só responde aos IDs autorizados em `TELEGRAM_ALLOWED_USER_IDS`.
+   - Envie `/start` para o [@userinfobot](https://t.me/userinfobot) no Telegram e copie o número do seu `Id`.
 
-   ```bash
-   docker compose up -d --build
-   docker compose logs -f
-   ```
+3. **Configurar o `.env`**:
+   - Preencha `TELEGRAM_BOT_TOKEN` com o token do `@BotFather`.
+   - Preencha `TELEGRAM_ALLOWED_USER_IDS` com o seu ID numérico (para múltiplos usuários, separe por vírgula: `123456789,987654321`).
 
-3. **Run locally (without Docker):**
+---
 
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -e ".[dev]"
-   python -m src.main
-   ```
+## Como Subir o Projeto
 
-4. **Run tests & linter:**
+### 1. Configurar variáveis de ambiente e diretórios
 
-   ```bash
-   pytest
-   ruff check .
-   ```
+```bash
+cp .env.example .env
+mkdir -p credentials data
+```
 
-## License
+Edite o arquivo `.env` preenchendo no mínimo:
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_ALLOWED_USER_IDS`
+- `GEMINI_API_KEY`
+- `TIMEZONE` (ex: `America/Sao_Paulo` — usado pela aplicação e também repassado como `TZ` ao container Docker)
+- `MORNING_SUMMARY_TIME` (ex: `07:30`)
+
+### 2. Subir com Docker Compose (Recomendado)
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+```
+
+Para parar o serviço:
+
+```bash
+docker compose down
+```
+
+### 3. Rodar localmente (sem Docker)
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+python -m src.main
+```
+
+### 4. Testes e Linter
+
+```bash
+pytest
+ruff check .
+```
+
+---
+
+## Como Usar no Dia a Dia
+
+Depois de iniciar o serviço e abrir o chat do seu bot no Telegram, basta enviar mensagens em linguagem natural (texto, áudio ou foto):
+
+- **Abastecimento**: *"Abasteci R$ 220 de gasolina no km 48.350, deu 36,5 litros"* (ou envie foto do cupom/painel).
+- **Mercado / Orçamento**: *"Gastei 189,90 no supermercado hoje no cartão de crédito"*.
+- **Agenda / Consultas**: *"Marca consulta do pediatra na quinta-feira às 14h"*.
+- **Reunião no Google Meet**: *"Agenda um Meet com fulano@email.com amanhã às 10h sobre o projeto"*.
+- **Consultas rápidas**: *"O que eu tenho na agenda hoje?"* ou *"Quanto já gastei de mercado este mês?"*.
+
+> **Nota de desenvolvimento**: o projeto está sendo construído de forma incremental. A estrutura base, configuração e Docker estão prontos; os handlers do Telegram, agente Gemini e integrações Google estão sendo implementados por fases conforme o roadmap da ADR.
+
+## Licença
 
 MIT
