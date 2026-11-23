@@ -1,0 +1,12 @@
+services:
+  assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: personal-assistant
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./credentials:/app/credentials

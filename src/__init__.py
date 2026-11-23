@@ -1,0 +1,1 @@
+"""Personal Assistant core package."""
