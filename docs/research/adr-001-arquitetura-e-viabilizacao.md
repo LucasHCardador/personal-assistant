@@ -6,10 +6,12 @@ Este documento consolida o entendimento levantado e define o plano técnico para
 
 ## 1. Resumo das Decisões Alinhadas
 
-- **Stack e Código**: Projeto próprio em **Python** (versionado neste repositório), utilizando `python-telegram-bot`, SDK oficial `google-genai` (Gemini API), `google-api-python-client` e `gspread`.
+- **Stack e Código**: Projeto próprio em **Python** (versionado neste repositório), utilizando `python-telegram-bot`, camada agnóstica de LLM (`BaseLLMProvider` com padrão **Gemini Free Tier** via `google-genai`, além de suporte a **Claude/Anthropic** e **OpenAI-compatible** para OpenRouter `:free`, Groq e Ollama), `google-api-python-client` e `gspread`.
 - **Infraestrutura**: Containerizado com **Docker** para desenvolvimento/testes locais e deploy 24/7 em **VPS/servidor Linux**.
-- **Controle de Acesso**: Chat privado no Telegram com **whitelist** para seu `user_id`, com tabela de usuários preparada para incluir sua esposa futuramente.
-- **Interação Multimodal**: Entrada por **texto livre, áudio/voz e fotos** (cupons fiscais, painel/odômetro do carro), processados nativamente pelo Gemini sem necessidade de OCR/transcrição externos.
+- **Controle de Acesso**: Chat privado no Telegram com **whitelist** via `TELEGRAM_ALLOWED_USER_IDS` para integridade e segurança, com documentação passo a passo no `README.md` para qualquer nível de usuário.
+- **Interação Multimodal e Governança de Mídia**: Entrada por **texto livre, áudio/voz e fotos** (cupons fiscais, painel/odômetro do carro). Áudios e imagens são processados **em memória (`BytesIO`)** e descartados imediatamente após a resposta (Política de Retenção Zero para Mídia), com fallback `STT_PROVIDER` (ex: Groq Whisper gratuito) quando o LLM escolhido não aceitar áudio nativo.
+- **Saídas Estruturadas (Structured Outputs)**: Duas camadas obrigatórias — (1) schemas **Pydantic / JSON Schema estrito** para extração de dados e parâmetros de *tools*, e (2) **templates determinísticos** (`src/bot/formatters.py`) para respostas padronizadas no Telegram.
+- **Governança de Dados Locais**: Job periódico de higienização (`Housekeeping`) no `APScheduler` com `DATA_RETENTION_DAYS` configurável no `.env` para expurgo de histórico antigo no SQLite e eventuais resíduos temporários.
 - **Escopo do MVP Google**: **Google Calendar**, **Google Meet** e **Google Sheets** (arquitetura modular de *tools* para plugar Gmail, Drive e Tasks nas próximas fases).
 - **Planilhas**: Criação de **novas planilhas estruturadas** no Google Sheets (Controle Veicular + Orçamento Doméstico), com suporte posterior para importar os dados que você já tem no app do Gemini.
 - **Motor Proativo**: Resumo matinal diário, alertas antecipados de compromissos do Calendar, lembretes avulsos/recorrentes e avisos de manutenção preventiva do carro (por km e por data).

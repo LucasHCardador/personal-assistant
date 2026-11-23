@@ -62,7 +62,9 @@ Para detalhes completos da arquitetura e decisões técnicas, consulte [docs/res
 
 1. **Docker e Docker Compose** (recomendado) ou **Python 3.12+**.
 2. **Conta no Telegram** para criar o bot e obter seu ID numérico.
-3. **Chave de API do Gemini** obtida no [Google AI Studio](https://aistudio.google.com/).
+3. **Provedor de IA (Padrão 100% Gratuito)**:
+   - **Recomendado (Gratuito e Multimodal)**: chave de API do **Gemini** no [Google AI Studio](https://aistudio.google.com/) (processa texto, áudio e fotos nativamente).
+   - **Outros provedores suportados**: **Claude (Anthropic)**, **OpenRouter (`:free`)**, **Groq** ou **Ollama** (local) configuráveis via `.env`. Caso o provedor escolhido não aceite áudio nativo, você pode configurar `STT_PROVIDER=groq` (tier gratuito) para transcrição automática.
 4. **Projeto no Google Cloud Console** (para integração com Calendar, Meet e Sheets):
    - Ative as APIs: **Google Calendar API**, **Google Sheets API** e **Google Drive API**.
    - Crie um **ID do cliente OAuth 2.0** (tipo *App para computador / Desktop App*) e salve o arquivo JSON como `credentials/credentials.json`.
@@ -98,7 +100,8 @@ mkdir -p credentials data
 Edite o arquivo `.env` preenchendo no mínimo:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_ALLOWED_USER_IDS`
-- `GEMINI_API_KEY`
+- `LLM_PROVIDER` (`gemini` por padrão, ou `anthropic` / `openai_compatible`)
+- `LLM_API_KEY` e `LLM_MODEL`
 - `TIMEZONE` (ex: `America/Sao_Paulo` — usado pela aplicação e também repassado como `TZ` ao container Docker)
 - `MORNING_SUMMARY_TIME` (ex: `07:30`)
 

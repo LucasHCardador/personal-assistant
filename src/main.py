@@ -23,10 +23,13 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
     logger.info(
-        "Personal Assistant initialized (model=%s, timezone=%s, allowed_users=%d)",
-        settings.gemini_model,
+        "Personal Assistant initialized "
+        "(provider=%s, model=%s, timezone=%s, allowed_users=%d, retention_days=%d)",
+        settings.llm_provider,
+        settings.llm_model,
         settings.timezone,
         len(settings.telegram_allowed_user_ids),
+        settings.data_retention_days,
     )
 
 

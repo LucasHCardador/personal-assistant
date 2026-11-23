@@ -1,7 +1,7 @@
 """Application configuration loaded strictly from environment variables."""
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -24,9 +24,15 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(..., min_length=1)
     telegram_allowed_user_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
 
-    # Gemini AI
-    gemini_api_key: str = Field(..., min_length=1)
-    gemini_model: str = "gemini-2.5-flash"
+    # LLM Provider
+    llm_provider: Literal["gemini", "anthropic", "openai_compatible"] = "gemini"
+    llm_api_key: str = ""
+    llm_model: str = "gemini-2.5-flash"
+    llm_base_url: str | None = None
+
+    # Speech-to-Text (fallback for providers without native audio input)
+    stt_provider: Literal["auto", "groq", "openai", "none"] = "auto"
+    stt_api_key: str = ""
 
     # Google Ecosystem (OAuth 2.0)
     google_credentials_path: Path = Path("/app/credentials/credentials.json")
@@ -38,8 +44,9 @@ class Settings(BaseSettings):
     timezone: str = "America/Sao_Paulo"
     morning_summary_time: str = "07:30"
 
-    # Storage & Logging
+    # Storage, Governance & Logging
     database_path: Path = Path("/app/data/assistant.db")
+    data_retention_days: int = Field(default=30, ge=1, le=3650)
     log_level: str = "INFO"
 
     @field_validator("telegram_allowed_user_ids", mode="before")
@@ -55,6 +62,14 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [int(item) for item in value]
         raise ValueError("TELEGRAM_ALLOWED_USER_IDS must be a comma-separated list of integers.")
+
+    @field_validator("llm_base_url", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, value: object) -> object:
+        """Normalize empty string URLs to None."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @field_validator("morning_summary_time")
     @classmethod
