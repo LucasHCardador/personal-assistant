@@ -66,8 +66,7 @@ Para detalhes completos da arquitetura e decisões técnicas, consulte [docs/res
    - **Recomendado (Gratuito e Multimodal)**: chave de API do **Gemini** no [Google AI Studio](https://aistudio.google.com/) (processa texto, áudio e fotos nativamente).
    - **Outros provedores suportados**: **Claude (Anthropic)**, **OpenRouter (`:free`)**, **Groq** ou **Ollama** (local) configuráveis via `.env`. Caso o provedor escolhido não aceite áudio nativo, você pode configurar `STT_PROVIDER=groq` (tier gratuito) para transcrição automática.
 4. **Projeto no Google Cloud Console** (para integração com Calendar, Meet e Sheets):
-   - Ative as APIs: **Google Calendar API**, **Google Sheets API** e **Google Drive API**.
-   - Crie um **ID do cliente OAuth 2.0** (tipo *App para computador / Desktop App*) e salve o arquivo JSON como `credentials/credentials.json`.
+   - Siga o passo a passo completo em [docs/guides/google-cloud-oauth.md](docs/guides/google-cloud-oauth.md) para ativar as APIs (**Google Calendar API**, **Google Sheets API** e **Google Drive API**), configurar a tela de permissão OAuth, baixar o `credentials/credentials.json`, gerar o `credentials/token.json` e criar as planilhas.
 
 ---
 
