@@ -194,6 +194,21 @@ class ToolExecutor:
 
         if tool_name == "create_calendar_event":
             parsed_create = CreateCalendarEventInput.model_validate(arguments)
+            duplicate = await self._find_duplicate_calendar_event(
+                summary=parsed_create.summary,
+                start_iso=parsed_create.start_iso,
+            )
+            if duplicate is not None:
+                return {
+                    "status": "aborted",
+                    "reason": "duplicate_event",
+                    "existing_event": duplicate,
+                    "message": (
+                        f"Já existe um compromisso '{duplicate.get('summary')}' "
+                        "agendado para esta data; criação abortada."
+                    ),
+                }
+
             clean_attendees = [e.strip() for e in parsed_create.attendees if e.strip()]
             if clean_attendees:
                 summary_text = (
@@ -260,6 +275,39 @@ class ToolExecutor:
             }
 
         return {"status": "error", "error": f"Unknown calendar tool: {tool_name}"}
+
+    async def _find_duplicate_calendar_event(
+        self,
+        *,
+        summary: str,
+        start_iso: str,
+    ) -> dict[str, Any] | None:
+        """Return an existing calendar event on the same date with a matching summary."""
+        if self._calendar is None:
+            return None
+        try:
+            tz = ZoneInfo(self._timezone_name)
+            parsed = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=tz)
+            day = parsed.astimezone(tz).date()
+            day_start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=tz).isoformat()
+            day_end = datetime(day.year, day.month, day.day, 23, 59, 59, tzinfo=tz).isoformat()
+            listed = await self._calendar.list_events(
+                start_iso=day_start,
+                end_iso=day_end,
+                query=summary.strip(),
+            )
+        except Exception as exc:
+            logger.warning("Duplicate calendar check failed: %s", exc)
+            return None
+
+        target = summary.strip().lower()
+        for event in listed.get("events", []):
+            existing_summary = str(event.get("summary") or "").strip().lower()
+            if existing_summary and (existing_summary == target or target in existing_summary):
+                return event
+        return None
 
     async def _execute_reminder_tool(
         self,

@@ -441,10 +441,22 @@ class GoogleSheetsService:
                 }
             )
 
+        technical_notes: list[str] = []
+        try:
+            specs_ws = self._open_worksheet("car", "Especificacoes_e_Risco")
+            for spec_row in specs_ws.get_all_values():
+                joined = " | ".join(cell.strip() for cell in spec_row if cell.strip())
+                if joined:
+                    technical_notes.append(joined)
+        except Exception:
+            # Optional reference tab; absence does not affect core maintenance checks.
+            pass
+
         return {
             "status": "ok",
             "current_km": effective_km,
             "items": items,
+            "technical_notes": technical_notes[:20],
         }
 
     async def get_car_maintenance_status(self, current_km: int | None = None) -> dict[str, Any]:
