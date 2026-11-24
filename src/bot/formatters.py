@@ -21,6 +21,14 @@ def format_structured_reply(reply: AssistantStructuredReply) -> str:
     prefix = _INTENT_PREFIX.get(reply.intent, "💬")
     lines: list[str] = [f"{prefix} <b>{html.escape(reply.summary)}</b>"]
 
+    for section in reply.sections:
+        if not section.items:
+            continue
+        lines.append("")
+        lines.append(f"<b>{html.escape(section.title)}</b>")
+        for item in section.items:
+            lines.append(f"• {html.escape(item)}")
+
     if reply.details:
         lines.append("")
         for item in reply.details:

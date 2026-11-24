@@ -60,6 +60,17 @@ class MaintenanceStatusQuery(BaseModel):
     )
 
 
+class CarPerformanceQuery(BaseModel):
+    """Input schema for querying detailed vehicle fuel consumption and cost evolution."""
+
+    last_n_refills: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Quantidade de abastecimentos recentes para detalhar na evolução.",
+    )
+
+
 class BudgetExpenseInput(BaseModel):
     """Input schema for logging a household budget expense or income."""
 

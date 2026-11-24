@@ -10,7 +10,12 @@ from src.agent.providers.base import BaseLLMProvider
 from src.agent.providers.factory import create_llm_provider
 from src.agent.providers.gemini import GeminiProvider
 from src.agent.providers.openai_compatible import OpenAICompatibleProvider
-from src.agent.schemas import AssistantStructuredReply, ChatMessage, MediaAttachment
+from src.agent.schemas import (
+    AssistantStructuredReply,
+    ChatMessage,
+    MediaAttachment,
+    ReplySection,
+)
 from src.bot.formatters import format_structured_reply
 from src.config import Settings
 from src.storage.database import Database
@@ -53,11 +58,14 @@ def test_format_structured_reply_escapes_html() -> None:
     reply = AssistantStructuredReply(
         intent="action_result",
         summary="Gasto <registrado>",
+        sections=[ReplySection(title="Evolução", items=["Tanque 1: 4,83 km/L"])],
         details=["Mercado & Padaria"],
         next_step_hint="Confira na planilha",
     )
     rendered = format_structured_reply(reply)
     assert "✅ <b>Gasto &lt;registrado&gt;</b>" in rendered
+    assert "<b>Evolução</b>" in rendered
+    assert "• Tanque 1: 4,83 km/L" in rendered
     assert "• Mercado &amp; Padaria" in rendered
     assert "<i>Confira na planilha</i>" in rendered
 

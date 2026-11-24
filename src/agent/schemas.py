@@ -30,6 +30,13 @@ class MediaAttachment(BaseModel):
     data: bytes
 
 
+class ReplySection(BaseModel):
+    """Named bullet section for rich structured Telegram replies."""
+
+    title: str = Field(min_length=1, description="Short section heading.")
+    items: list[str] = Field(default_factory=list, description="Bullet points in this section.")
+
+
 class AssistantStructuredReply(BaseModel):
     """Strict structured output contract enforced across all LLM providers."""
 
@@ -40,9 +47,13 @@ class AssistantStructuredReply(BaseModel):
         min_length=1,
         description="Concise main response in Brazilian Portuguese.",
     )
+    sections: list[ReplySection] = Field(
+        default_factory=list,
+        description="Optional structured sections for analytical summaries and evolutions.",
+    )
     details: list[str] = Field(
         default_factory=list,
-        description="Optional bullet points with extracted fields, totals, or steps.",
+        description="Optional flat bullet points with extracted fields or steps.",
     )
     next_step_hint: str | None = Field(
         default=None,

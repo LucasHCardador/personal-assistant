@@ -10,6 +10,7 @@ from src.agent.tools.schemas import (
     BudgetSummaryQuery,
     CancelReminderInput,
     CarExpenseInput,
+    CarPerformanceQuery,
     CreateCalendarEventInput,
     CreateReminderInput,
     DeleteCalendarEventInput,
@@ -69,6 +70,14 @@ class ToolRegistry:
                             "quais estão próximos do vencimento ou vencidos."
                         ),
                         parameters_schema=_clean_json_schema(MaintenanceStatusQuery),
+                    ),
+                    ToolDefinition(
+                        name="get_car_performance_summary",
+                        description=(
+                            "Consulta a evolução de consumo (km/L), custo por km, média geral "
+                            "acumulada, eficiência por combustível e últimos abastecimentos."
+                        ),
+                        parameters_schema=_clean_json_schema(CarPerformanceQuery),
                     ),
                 ]
             )

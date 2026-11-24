@@ -12,6 +12,7 @@ from src.agent.tools.schemas import (
     BudgetSummaryQuery,
     CancelReminderInput,
     CarExpenseInput,
+    CarPerformanceQuery,
     CreateCalendarEventInput,
     CreateReminderInput,
     DeleteCalendarEventInput,
@@ -145,6 +146,12 @@ class ToolExecutor:
             parsed_status = MaintenanceStatusQuery.model_validate(arguments)
             return await self._sheets.get_car_maintenance_status(
                 current_km=parsed_status.current_km
+            )
+
+        if tool_name == "get_car_performance_summary":
+            parsed_perf = CarPerformanceQuery.model_validate(arguments)
+            return await self._sheets.get_car_performance_summary(
+                last_n_refills=parsed_perf.last_n_refills
             )
 
         if tool_name == "log_budget_expense":

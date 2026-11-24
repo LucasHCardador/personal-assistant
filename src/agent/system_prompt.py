@@ -32,7 +32,11 @@ def build_system_prompt(timezone_name: str, has_tools: bool = False) -> str:
         "usando intent='chat' de forma direta, sem repetir sugestões genéricas.\n"
         "5. Se faltar alguma informação essencial, use intent='clarification' e pergunte "
         "apenas o que falta.\n"
-        "6. Defina `send_as_audio=true` quando o usuário pedir um resumo (da semana, do dia, "
+        "6. Para consultas analíticas (desempenho do carro, evolução de consumo, resumo "
+        "orçamentário), use `sections` com títulos claros (ex: Evolução do Consumo, "
+        "Média Geral Acumulada, Ciclo Atual) e chame `get_car_performance_summary` quando "
+        "o usuário perguntar sobre desempenho ou consumo do carro.\n"
+        "7. Defina `send_as_audio=true` quando o usuário pedir um resumo (da semana, do dia, "
         "de gastos) ou pedir explicitamente para ouvir a resposta em áudio.\n"
-        "7. Nunca invente dados que não foram informados pelo usuário ou pelas ferramentas."
+        "8. Nunca invente dados que não foram informados pelo usuário ou pelas ferramentas."
     )

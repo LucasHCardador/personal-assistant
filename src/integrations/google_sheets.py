@@ -451,6 +451,118 @@ class GoogleSheetsService:
         """Return upcoming and overdue vehicle maintenance items."""
         return await asyncio.to_thread(self._get_car_maintenance_status_sync, current_km)
 
+    def _get_car_performance_summary_sync(self, last_n_refills: int = 5) -> dict[str, Any]:
+        fuel_ws = self._open_worksheet("car", "Abastecimentos")
+        fuel_records = fuel_ws.get_all_records()
+
+        odometers: list[int] = []
+        refills: list[dict[str, Any]] = []
+        total_fuel_spent = 0.0
+        total_liters_for_avg = 0.0
+        total_km_for_avg = 0
+        by_fuel: dict[str, dict[str, float | int]] = {}
+
+        for row in fuel_records:
+            km = _parse_int(row.get("Km Atual"))
+            if km is not None:
+                odometers.append(km)
+
+            liters = _parse_float(row.get("Litros")) or 0.0
+            total_value = _parse_float(row.get("Valor Total")) or 0.0
+            price_per_l = _parse_float(row.get("Preço/L"))
+            km_driven = _parse_int(row.get("Km Rodados"))
+            km_per_l = _parse_float(row.get("Consumo (km/L)"))
+            fuel_type = str(row.get("Combustível", "")).strip() or "Desconhecido"
+
+            total_fuel_spent += total_value
+            if km_driven and km_driven > 0 and liters > 0:
+                total_km_for_avg += km_driven
+                total_liters_for_avg += liters
+                bucket = by_fuel.setdefault(
+                    fuel_type,
+                    {"refills": 0, "km_driven": 0, "liters": 0.0, "spent": 0.0},
+                )
+                bucket["refills"] = int(bucket["refills"]) + 1
+                bucket["km_driven"] = int(bucket["km_driven"]) + km_driven
+                bucket["liters"] = float(bucket["liters"]) + liters
+                bucket["spent"] = float(bucket["spent"]) + total_value
+
+            cost_per_km = (
+                round(total_value / km_driven, 2) if km_driven and km_driven > 0 else None
+            )
+            refills.append(
+                {
+                    "date": str(row.get("Data", "")).strip(),
+                    "km": km,
+                    "fuel_type": fuel_type,
+                    "liters": round(liters, 3) if liters else 0.0,
+                    "total_value": round(total_value, 2),
+                    "price_per_l": round(price_per_l, 2) if price_per_l is not None else None,
+                    "km_driven": km_driven,
+                    "km_per_l": round(km_per_l, 2) if km_per_l is not None else None,
+                    "cost_per_km": cost_per_km,
+                    "station": str(row.get("Posto", "")).strip(),
+                    "notes": str(row.get("Observações", "")).strip(),
+                }
+            )
+
+        maint_ws = self._open_worksheet("car", "Manutencoes_Realizadas")
+        total_maint_spent = sum(
+            _parse_float(r.get("Valor")) or 0.0 for r in maint_ws.get_all_records()
+        )
+        fixed_ws = self._open_worksheet("car", "Despesas_Fixas_Outros")
+        total_fixed_spent = sum(
+            _parse_float(r.get("Valor")) or 0.0 for r in fixed_ws.get_all_records()
+        )
+
+        initial_km = odometers[0] if odometers else None
+        current_km = odometers[-1] if odometers else None
+        total_km_monitored = (
+            current_km - initial_km
+            if initial_km is not None and current_km is not None and current_km >= initial_km
+            else None
+        )
+        total_spent_all = total_fuel_spent + total_maint_spent + total_fixed_spent
+        avg_cost_per_km = (
+            round(total_spent_all / total_km_monitored, 2)
+            if total_km_monitored and total_km_monitored > 0
+            else None
+        )
+        weighted_avg_km_per_l = (
+            round(total_km_for_avg / total_liters_for_avg, 2)
+            if total_liters_for_avg > 0 and total_km_for_avg > 0
+            else None
+        )
+
+        efficiency_by_fuel = {
+            fuel: {
+                "refills": data["refills"],
+                "km_driven": data["km_driven"],
+                "avg_km_per_l": round(float(data["km_driven"]) / float(data["liters"]), 2),
+                "total_spent": round(float(data["spent"]), 2),
+            }
+            for fuel, data in by_fuel.items()
+            if float(data["liters"]) > 0
+        }
+
+        return {
+            "status": "ok",
+            "initial_km": initial_km,
+            "current_km": current_km,
+            "total_km_monitored": total_km_monitored,
+            "total_fuel_spent": round(total_fuel_spent, 2),
+            "total_maintenance_spent": round(total_maint_spent, 2),
+            "total_fixed_spent": round(total_fixed_spent, 2),
+            "weighted_avg_km_per_l": weighted_avg_km_per_l,
+            "avg_cost_per_km": avg_cost_per_km,
+            "efficiency_by_fuel": efficiency_by_fuel,
+            "recent_refills": refills[-last_n_refills:],
+        }
+
+    async def get_car_performance_summary(self, last_n_refills: int = 5) -> dict[str, Any]:
+        """Return detailed fuel consumption evolution, accumulated totals, and cost per km."""
+        return await asyncio.to_thread(self._get_car_performance_summary_sync, last_n_refills)
+
     def _log_budget_expense_sync(
         self,
         *,
