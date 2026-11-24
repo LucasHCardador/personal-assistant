@@ -15,13 +15,16 @@ from src.storage.database import Database
 
 
 def configure_logging(level: str) -> None:
-    """Configure structured root logging."""
+    """Configure structured root logging and silence noisy HTTP client loggers."""
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
     )
+    # Prevent httpx from logging full Telegram Bot API URLs (which contain the bot token)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def main() -> None:
