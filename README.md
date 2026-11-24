@@ -156,17 +156,19 @@ O projeto utiliza o **[Zensical](https://zensical.org/)** para servir a document
 
 ### Subir o servidor de documentação via Docker Compose
 
+O serviço `docs` já sobe automaticamente junto com `docker compose up -d` (ou isoladamente):
+
 ```bash
-docker compose --profile docs up
+docker compose up -d docs
 ```
 
 Ou diretamente via `docker run`:
 
 ```bash
-docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical
+docker run --rm -it -p 8001:8000 -v ${PWD}:/docs zensical/zensical
 ```
 
-Após subir, acesse **http://localhost:8000** no navegador. As alterações nos arquivos Markdown em `docs/` são recarregadas automaticamente.
+Após subir, acesse **http://localhost:8001** (ou a porta configurada em `DOCS_PORT` no `.env`). As alterações nos arquivos Markdown em `docs/` são recarregadas automaticamente.
 
 Para gerar os arquivos estáticos da documentação:
 

@@ -16,9 +16,8 @@ services:
   docs:
     image: zensical/zensical:latest
     container_name: personal-assistant-docs
-    profiles:
-      - docs
+    restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${DOCS_PORT:-8001}:8000"
     volumes:
       - .:/docs
