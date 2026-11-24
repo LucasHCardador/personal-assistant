@@ -1,15 +1,15 @@
 # Guia Passo a Passo — Configuração no Google Cloud Console (OAuth 2.0)
 
-Este guia explica como criar as credenciais OAuth 2.0 no **Google Cloud Console** para conectar o Personal Assistant à sua conta Google (**Google Calendar**, **Google Meet** e **Google Sheets**).
+Este guia explica como criar as credenciais OAuth 2.0 no **Google Cloud Console** (interface atual **Google Auth Platform**) para conectar o Personal Assistant à sua conta Google (**Google Calendar**, **Google Meet** e **Google Sheets**).
 
 ---
 
 ## 1. Criar ou Selecionar um Projeto
 
 1. Acesse o [Google Cloud Console](https://console.cloud.google.com/).
-2. No seletor de projetos no topo da página, clique em **Novo projeto** (ou selecione um existente).
+2. No seletor de projetos no topo da página, clique em **Novo projeto** (ou selecione um existente, como `My First Project`).
 3. Dê um nome (ex: `personal-assistant`) e clique em **Criar**.
-4. Certifique-se de que o projeto recém-criado está selecionado no topo.
+4. Certifique-se de que o projeto correto está selecionado no topo.
 
 ---
 
@@ -23,38 +23,39 @@ No menu lateral esquerdo, acesse **APIs e Serviços -> Biblioteca** (ou pesquise
 
 ---
 
-## 3. Configurar a Tela de Permissão OAuth (OAuth Consent Screen)
+## 3. Configurar a Google Auth Platform (Tela de Permissão)
 
-No menu lateral, acesse **APIs e Serviços -> Tela de permissão OAuth** (ou *Google Auth Platform -> Público-alvo / Visão geral*):
+No menu lateral, acesse **APIs e Serviços -> Tela de permissão OAuth** (você será direcionado para a **Google Auth Platform**):
 
-1. Caso apareça a tela inicial, clique em **Começar** / **Configurar**.
-2. Em **Tipo de usuário (User Type / Público-alvo)**, selecione **Externo** e clique em **Criar** / **Próxima**.
-3. Preencha os campos obrigatórios:
+1. Na tela inicial (*Visão geral*), clique em **Começar** (se ainda não estiver configurado).
+2. Preencha o assistente inicial:
    - **Nome do app**: `Personal Assistant`
    - **E-mail de suporte do usuário**: seu e-mail `@gmail.com`
-   - **Dados de contato do desenvolvedor**: seu e-mail `@gmail.com`
-4. Clique em **Salvar e continuar**.
-5. **Escopos** (se exibido): clique em **Salvar e continuar** (o script `auth_google` solicitará os escopos necessários automaticamente).
-6. **Usuários de teste (Test users)**:
-   - Clique em **+ Add Users** e adicione o seu próprio e-mail `@gmail.com` que será conectado ao assistente.
-   - Salve e continue.
+   - **Público-alvo**: selecione **Externo**
+   - **Dados de contato**: seu e-mail `@gmail.com`
+   - Aceite a política de dados e clique em **Criar**.
+3. Após criar, você cairá na tela **Visão geral de OAuth** com o menu lateral da **Google Auth Platform** (*Visão geral*, *Branding*, *Público-alvo*, *Clientes*, *Acesso a dados*).
+
+### Configurar Público-alvo (Usuários de Teste / Publicação)
+
+1. No menu lateral esquerdo da Google Auth Platform, clique em **Público-alvo**.
+2. Em **Usuários de teste**, clique em **+ Add users**, informe o seu `@gmail.com` e salve.
 
 > **Importante (Expiração de 7 dias do Token):**
 > Enquanto o aplicativo ficar no status **Em teste (Testing)**, o `refresh_token` do Google expira a cada **7 dias**.
 > Para uso contínuo sem precisar reautenticar toda semana:
-> - Vá em **Tela de permissão OAuth / Público-alvo** e clique em **Publicar aplicativo (Publish App)** -> **Confirmar**.
+> - Na mesma aba **Público-alvo**, clique em **Publicar aplicativo (Publish App)** -> **Confirmar**.
 > - Como o app é para seu uso pessoal (sem verificação pública do Google), no momento do login aparecerá a tela *"O Google não verificou este app"*. Basta clicar em **Avançado -> Acessar personal-assistant (não seguro)** uma única vez.
 
 ---
 
-## 4. Criar o ID do Cliente OAuth (`credentials.json`)
+## 4. Criar o Cliente OAuth (`credentials.json`)
 
-1. No menu lateral, acesse **APIs e Serviços -> Credenciais** (ou *Google Auth Platform -> Clientes*).
-2. Clique em **+ Criar credenciais -> ID do cliente OAuth**.
-3. Em **Tipo de aplicativo**, selecione **App para computador (Desktop app)**.
-4. Dê um nome (ex: `personal-assistant-desktop`) e clique em **Criar**.
-5. Na janela de confirmação, clique em **Fazer download do JSON**.
-6. Renomeie o arquivo baixado para `credentials.json` e mova para a pasta `credentials/` na raiz do projeto:
+1. Na tela **Visão geral**, clique no botão **Criar um cliente OAuth** (ou acesse **Clientes -> + Criar cliente** no menu lateral esquerdo).
+2. Em **Tipo de aplicativo**, selecione **App para computador (Desktop app)**.
+3. Dê um nome (ex: `personal-assistant-desktop`) e clique em **Criar**.
+4. Na janela de confirmação, clique em **Fazer download do JSON**.
+5. Renomeie o arquivo baixado para `credentials.json` e mova para a pasta `credentials/` na raiz do projeto:
 
 ```text
 personal-assistant/
