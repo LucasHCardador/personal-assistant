@@ -7,14 +7,16 @@
 !.env.example
 
 # Google OAuth credentials & tokens
-credentials/
+credentials/*
+!credentials/.gitkeep
 credentials.json
 token.json
 *.pem
 *.key
 
 # Local database & persistent runtime data
-data/
+data/*
+!data/.gitkeep
 *.db
 *.sqlite
 *.sqlite3

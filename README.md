@@ -90,11 +90,10 @@ Para detalhes completos da arquitetura e decisões técnicas, consulte [docs/res
 
 ## Como Subir o Projeto
 
-### 1. Configurar variáveis de ambiente e diretórios
+### 1. Configurar variáveis de ambiente
 
 ```bash
 cp .env.example .env
-mkdir -p credentials data
 ```
 
 Edite o arquivo `.env` preenchendo no mínimo:
