@@ -51,7 +51,7 @@ class GeminiProvider(BaseLLMProvider):
     ) -> types.GenerateContentResponse:
         """Call Gemini async API with fallback models and backoff on transient errors."""
         last_error: Exception | None = None
-        max_rounds = 2
+        max_rounds = 4
 
         for round_idx in range(max_rounds):
             for idx, model_name in enumerate(self._models):
@@ -77,9 +77,11 @@ class GeminiProvider(BaseLLMProvider):
                         continue
 
             if round_idx < max_rounds - 1:
-                delay = 1.5 * (round_idx + 1) + random.uniform(0.0, 0.5)
+                delay = 2.0 * (2**round_idx) + random.uniform(0.0, 0.8)
                 logger.warning(
-                    "All Gemini models returned transient errors; retrying in %.1fs.",
+                    "All Gemini models returned transient errors (round %d/%d); retrying in %.1fs.",
+                    round_idx + 1,
+                    max_rounds,
                     delay,
                 )
                 await asyncio.sleep(delay)
