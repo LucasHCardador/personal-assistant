@@ -1,8 +1,18 @@
 """Strict Pydantic schemas for agent inputs, media, and structured LLM outputs."""
 
-from typing import Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
+
+
+@dataclass(frozen=True)
+class ToolDefinition:
+    """Provider-agnostic declaration of an executable tool."""
+
+    name: str
+    description: str
+    parameters_schema: dict[str, Any]
 
 
 class ChatMessage(BaseModel):
@@ -45,3 +55,14 @@ class AssistantStructuredReply(BaseModel):
             "when media was attached."
         ),
     )
+
+    _undo_action_id: int | None = PrivateAttr(default=None)
+
+    @property
+    def undo_action_id(self) -> int | None:
+        """Internal action_history ID when this reply recorded an undoable write."""
+        return self._undo_action_id
+
+    def set_undo_action_id(self, action_id: int | None) -> None:
+        """Attach an internal action_history ID without altering the JSON schema."""
+        self._undo_action_id = action_id

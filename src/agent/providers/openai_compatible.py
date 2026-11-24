@@ -6,11 +6,12 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from src.agent.providers.base import BaseLLMProvider
+from src.agent.providers.base import MAX_TOOL_ITERATIONS, BaseLLMProvider, ToolCaller
 from src.agent.schemas import (
     AssistantStructuredReply,
     ChatMessage,
     MediaAttachment,
+    ToolDefinition,
 )
 
 
@@ -31,12 +32,15 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         history: list[ChatMessage],
         user_text: str,
         attachments: list[MediaAttachment] | None = None,
+        tools: list[ToolDefinition] | None = None,
+        tool_executor: ToolCaller | None = None,
     ) -> AssistantStructuredReply:
-        """Call OpenAI-compatible API requesting strict JSON output."""
+        """Call OpenAI-compatible API with optional tool-calling loop and JSON output."""
         schema_json = json.dumps(AssistantStructuredReply.model_json_schema(), ensure_ascii=False)
         json_system_prompt = (
             f"{system_prompt}\n\n"
-            "IMPORTANTE: Responda EXCLUSIVAMENTE com um objeto JSON válido seguindo este schema:\n"
+            "IMPORTANTE: Quando não estiver chamando uma ferramenta, responda EXCLUSIVAMENTE "
+            "com um objeto JSON válido seguindo este schema:\n"
             f"{schema_json}"
         )
 
@@ -59,14 +63,52 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         else:
             messages.append({"role": "user", "content": user_text})
 
-        response = await self._client.chat.completions.create(
+        if tools and tool_executor is not None:
+            openai_tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.parameters_schema,
+                    },
+                }
+                for t in tools
+            ]
+            for _ in range(MAX_TOOL_ITERATIONS):
+                response = await self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,  # type: ignore[arg-type]
+                    tools=openai_tools,  # type: ignore[arg-type]
+                    temperature=0.2,
+                    response_format={"type": "json_object"},
+                )
+                choice_msg = response.choices[0].message
+                if not choice_msg.tool_calls:
+                    if not choice_msg.content:
+                        raise ValueError("OpenAI-compatible provider returned an empty response.")
+                    return AssistantStructuredReply.model_validate_json(choice_msg.content)
+
+                messages.append(choice_msg.model_dump(exclude_none=True))
+                for tc in choice_msg.tool_calls:
+                    args = json.loads(tc.function.arguments or "{}")
+                    result = await tool_executor(tc.function.name, args)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        }
+                    )
+
+        final_response = await self._client.chat.completions.create(
             model=self._model,
             messages=messages,  # type: ignore[arg-type]
             temperature=0.2,
             response_format={"type": "json_object"},
         )
 
-        raw_content = response.choices[0].message.content
+        raw_content = final_response.choices[0].message.content
         if not raw_content:
             raise ValueError("OpenAI-compatible provider returned an empty response.")
         return AssistantStructuredReply.model_validate_json(raw_content)

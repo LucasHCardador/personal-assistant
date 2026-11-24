@@ -117,7 +117,21 @@ Para parar o serviço:
 docker compose down
 ```
 
-### 3. Rodar localmente (sem Docker)
+### 3. Configurar Google OAuth 2.0 e Planilhas (Google Sheets)
+
+Após salvar o arquivo OAuth `credentials.json` em `credentials/credentials.json`:
+
+```bash
+# 1. Autenticar sua conta Google e gerar credentials/token.json
+python -m scripts.auth_google
+
+# 2. Criar as planilhas de Controle Veicular e Orçamento Doméstico
+python -m scripts.setup_sheets
+```
+
+Copie os valores `GOOGLE_SHEETS_CAR_ID` e `GOOGLE_SHEETS_BUDGET_ID` exibidos no terminal para o seu arquivo `.env`. Caso esses campos ainda não estejam preenchidos, o bot iniciará normalmente com as ferramentas de planilha desabilitadas.
+
+### 4. Rodar localmente (sem Docker)
 
 ```bash
 python -m venv .venv
@@ -126,7 +140,7 @@ pip install -e ".[dev]"
 python -m src.main
 ```
 
-### 4. Testes e Linter
+### 5. Testes e Linter
 
 ```bash
 pytest

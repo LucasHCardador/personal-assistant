@@ -44,9 +44,11 @@ def format_help_message() -> str:
     """Return the deterministic /help usage guide."""
     return (
         "📖 <b>Como usar no dia a dia</b>\n\n"
-        "• <b>Texto livre:</b> envie dúvidas, gastos ou compromissos normalmente.\n"
+        "• <b>Texto livre:</b> envie gastos do carro, abastecimentos, mercado ou dúvidas.\n"
         "• <b>Áudio:</b> grave uma mensagem de voz ao sair do posto ou mercado.\n"
-        "• <b>Foto:</b> envie foto de cupom fiscal ou do painel do carro.\n\n"
-        "<i>As integrações com Google Sheets e Google Calendar/Meet serão ativadas "
-        "nas próximas fases.</i>"
+        "• <b>Foto:</b> envie foto de cupom fiscal ou do painel do carro.\n"
+        "• <b>Desfazer:</b> use o botão <i>Desfazer</i> ou peça no chat para reverter o "
+        "último lançamento.\n\n"
+        "<i>As integrações com Google Calendar/Meet e lembretes proativos serão "
+        "ativadas nas próximas fases.</i>"
     )

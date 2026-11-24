@@ -1,11 +1,28 @@
 """Local SQLite persistence and retention-policy management."""
 
+import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import aiosqlite
 
 from src.agent.schemas import ChatMessage
+
+
+@dataclass(frozen=True)
+class ActionRecord:
+    """Persisted reversible action record from `action_history`."""
+
+    id: int
+    user_id: int
+    action_type: str
+    target_system: str
+    external_id: str
+    payload: dict[str, Any]
+    undone: bool
+    created_at: str
 
 
 class Database:
@@ -99,6 +116,91 @@ class Database:
             )
             await db.commit()
             return cursor.rowcount or 0
+
+    async def record_action(
+        self,
+        *,
+        user_id: int,
+        action_type: str,
+        target_system: str,
+        external_id: str,
+        payload: dict[str, Any],
+    ) -> int:
+        """Record a reversible external action in `action_history` and return its ID."""
+        now_iso = datetime.now(UTC).isoformat()
+        payload_json = json.dumps(payload, ensure_ascii=False)
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT INTO action_history (
+                    user_id, action_type, target_system, external_id,
+                    payload_json, undone, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, 0, ?)
+                """,
+                (user_id, action_type, target_system, external_id, payload_json, now_iso),
+            )
+            await db.commit()
+            return int(cursor.lastrowid or 0)
+
+    async def get_last_undoable_action(
+        self,
+        user_id: int,
+        action_id: int | None = None,
+    ) -> ActionRecord | None:
+        """Return the specified or most recent non-undone action for a user."""
+        async with aiosqlite.connect(self._db_path) as db:
+            if action_id is not None:
+                cursor = await db.execute(
+                    """
+                    SELECT id, user_id, action_type, target_system, external_id,
+                           payload_json, undone, created_at
+                    FROM action_history
+                    WHERE id = ? AND user_id = ? AND undone = 0
+                    """,
+                    (action_id, user_id),
+                )
+            else:
+                cursor = await db.execute(
+                    """
+                    SELECT id, user_id, action_type, target_system, external_id,
+                           payload_json, undone, created_at
+                    FROM action_history
+                    WHERE user_id = ? AND undone = 0
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+            row = await cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return ActionRecord(
+            id=int(row[0]),
+            user_id=int(row[1]),
+            action_type=str(row[2]),
+            target_system=str(row[3]),
+            external_id=str(row[4]),
+            payload=json.loads(str(row[5])),
+            undone=bool(row[6]),
+            created_at=str(row[7]),
+        )
+
+    async def mark_action_undone(self, action_id: int, user_id: int) -> bool:
+        """Mark an action as undone and return True if a row was updated."""
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                UPDATE action_history
+                SET undone = 1
+                WHERE id = ? AND user_id = ? AND undone = 0
+                """,
+                (action_id, user_id),
+            )
+            await db.commit()
+            return (cursor.rowcount or 0) > 0
 
     async def purge_expired_data(self, retention_days: int) -> dict[str, int]:
         """Remove records older than `retention_days` to enforce data governance."""

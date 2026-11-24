@@ -1,12 +1,18 @@
 """Abstract base interface for interchangeable LLM providers."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from src.agent.schemas import (
     AssistantStructuredReply,
     ChatMessage,
     MediaAttachment,
+    ToolDefinition,
 )
+
+ToolCaller = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
+MAX_TOOL_ITERATIONS = 5
 
 
 class BaseLLMProvider(ABC):
@@ -23,5 +29,7 @@ class BaseLLMProvider(ABC):
         history: list[ChatMessage],
         user_text: str,
         attachments: list[MediaAttachment] | None = None,
+        tools: list[ToolDefinition] | None = None,
+        tool_executor: ToolCaller | None = None,
     ) -> AssistantStructuredReply:
-        """Generate a validated structured response from the underlying LLM."""
+        """Generate a validated structured response, optionally executing tool calls."""

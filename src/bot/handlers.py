@@ -2,12 +2,13 @@
 
 import logging
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
 from src.agent.orchestrator import AgentOrchestrator
 from src.agent.schemas import AssistantStructuredReply, MediaAttachment
+from src.agent.tools.executor import ToolExecutor
 from src.bot.formatters import (
     format_help_message,
     format_structured_reply,
@@ -29,10 +30,12 @@ class BotHandlers:
         allowed_user_ids: list[int],
         orchestrator: AgentOrchestrator,
         database: Database,
+        tool_executor: ToolExecutor | None = None,
     ) -> None:
         self._allowed_user_ids = allowed_user_ids
         self._orchestrator = orchestrator
         self._db = database
+        self._tool_executor = tool_executor
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
@@ -165,4 +168,78 @@ class BotHandlers:
                 next_step_hint="Tente novamente em alguns instantes.",
             )
 
-        await message.reply_text(format_structured_reply(reply), parse_mode=ParseMode.HTML)
+        reply_markup: InlineKeyboardMarkup | None = None
+        if reply.undo_action_id is not None:
+            reply_markup = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Desfazer",
+                            callback_data=f"undo:{reply.undo_action_id}",
+                        )
+                    ]
+                ]
+            )
+
+        await message.reply_text(
+            format_structured_reply(reply),
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup,
+        )
+
+    async def undo_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle inline 'Desfazer' button clicks for recorded sheet writes."""
+        if not await ensure_authorized(update, self._allowed_user_ids):
+            return
+
+        query = update.callback_query
+        user = update.effective_user
+        if not query or not user or not query.data:
+            return
+
+        await query.answer()
+
+        if self._tool_executor is None:
+            reply = AssistantStructuredReply(
+                intent="error",
+                summary="O recurso de desfazer não está disponível no momento.",
+            )
+            if query.message:
+                await query.message.reply_text(
+                    format_structured_reply(reply), parse_mode=ParseMode.HTML
+                )
+            return
+
+        try:
+            action_id = int(query.data.split(":", 1)[1])
+        except (IndexError, ValueError):
+            return
+
+        result = await self._tool_executor.undo_action(user_id=user.id, action_id=action_id)
+        if result.get("status") == "ok":
+            await query.edit_message_reply_markup(reply_markup=None)
+            reply = AssistantStructuredReply(
+                intent="action_result",
+                summary="Lançamento desfeito com sucesso.",
+                details=[
+                    f"Aba: {result.get('worksheet', '-')}",
+                    f"ID removido: {result.get('record_id', '-')}",
+                ],
+            )
+        elif result.get("status") == "not_found":
+            await query.edit_message_reply_markup(reply_markup=None)
+            reply = AssistantStructuredReply(
+                intent="clarification",
+                summary="Esta ação já foi desfeita ou não está mais disponível.",
+            )
+        else:
+            reply = AssistantStructuredReply(
+                intent="error",
+                summary="Não foi possível desfazer este lançamento.",
+                details=[str(result.get("error", "Erro desconhecido"))],
+            )
+
+        if query.message:
+            await query.message.reply_text(
+                format_structured_reply(reply), parse_mode=ParseMode.HTML
+            )
