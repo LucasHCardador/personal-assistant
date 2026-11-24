@@ -103,6 +103,8 @@ Edite o arquivo `.env` preenchendo no mínimo:
 - `LLM_API_KEY` e `LLM_MODEL`
 - `TIMEZONE` (ex: `America/Sao_Paulo` — usado pela aplicação e também repassado como `TZ` ao container Docker)
 - `MORNING_SUMMARY_TIME` (ex: `07:30`)
+- `WEEKLY_SUMMARY_DAY` e `WEEKLY_SUMMARY_TIME` (ex: `sun` e `19:00` para o resumo semanal)
+- `TTS_ENABLED` e `TTS_VOICE` (ex: `true` e `pt-BR-AntonioNeural` para receber resumos em áudio)
 
 ### 2. Subir com Docker Compose (Recomendado)
 

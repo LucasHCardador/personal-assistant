@@ -12,6 +12,7 @@ from src.agent.orchestrator import AgentOrchestrator
 from src.agent.providers.factory import create_llm_provider
 from src.agent.stt import create_audio_transcriber
 from src.agent.tools import ToolExecutor, ToolRegistry
+from src.agent.tts import SpeechSynthesizer
 from src.bot.app import build_telegram_application
 from src.config import Settings, get_settings
 from src.integrations.google_auth import load_google_credentials
@@ -137,6 +138,7 @@ def main() -> None:
     database = Database(settings.database_path)
     provider = create_llm_provider(settings)
     transcriber = create_audio_transcriber(settings)
+    tts = SpeechSynthesizer(voice=settings.tts_voice) if settings.tts_enabled else None
 
     google_creds = _load_google_credentials_if_available(settings, logger)
     sheets_service = _build_sheets_service(settings, google_creds, logger)
@@ -173,6 +175,7 @@ def main() -> None:
         orchestrator=orchestrator,
         database=database,
         tool_executor=tool_executor,
+        tts=tts,
     )
 
     async def on_startup(application: Application) -> None:
@@ -183,6 +186,7 @@ def main() -> None:
             settings=settings,
             calendar_service=calendar_service,
             sheets_service=sheets_service,
+            tts=tts,
         )
         register_proactive_jobs(scheduler, notifier, settings)
         scheduler.start()

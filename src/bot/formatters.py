@@ -188,3 +188,59 @@ def format_reminder_notification(
         lines.append(f"<i>Recorrência: {html.escape(rec_label)}</i>")
 
     return "\n".join(lines)
+
+
+def _format_local_datetime(iso_value: str, timezone_name: str) -> str:
+    """Format an ISO-8601 string into DD/MM HH:MM in the configured timezone."""
+    if not iso_value:
+        return ""
+    try:
+        if "T" not in iso_value:
+            dt_only = datetime.strptime(iso_value, "%Y-%m-%d")
+            return f"{dt_only.strftime('%d/%m')} (dia todo)"
+        dt = datetime.fromisoformat(iso_value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=ZoneInfo(timezone_name))
+        return dt.astimezone(ZoneInfo(timezone_name)).strftime("%d/%m às %H:%M")
+    except ValueError:
+        return iso_value
+
+
+def format_weekly_summary(
+    *,
+    period_label: str,
+    events: list[dict[str, Any]],
+    reminders: list[ReminderRecord],
+    maintenance_items: list[dict[str, Any]],
+    timezone_name: str,
+) -> str:
+    """Render the weekly overview as deterministic Telegram HTML."""
+    lines: list[str] = [f"<b>Resumo da Semana ({html.escape(period_label)})</b>", ""]
+
+    lines.append("<b>Compromissos dos próximos 7 dias:</b>")
+    if events:
+        for ev in events:
+            when = _format_local_datetime(str(ev.get("start") or ""), timezone_name)
+            summary = html.escape(str(ev.get("summary") or "Sem título"))
+            lines.append(f"• {html.escape(when)} — {summary}")
+    else:
+        lines.append("• Nenhum compromisso agendado para os próximos 7 dias.")
+
+    lines.append("")
+    lines.append("<b>Lembretes pendentes:</b>")
+    if reminders:
+        for rem in reminders:
+            when = _format_local_datetime(rem.trigger_at, timezone_name)
+            lines.append(f"• {html.escape(when)} — {html.escape(rem.title)}")
+    else:
+        lines.append("• Nenhum lembrete pendente para a semana.")
+
+    if maintenance_items:
+        lines.append("")
+        lines.append("<b>Manutenções do carro em atenção:</b>")
+        for item in maintenance_items:
+            name = html.escape(str(item.get("item", "")))
+            status = html.escape(str(item.get("status", "")))
+            lines.append(f"• {name}: {status}")
+
+    return "\n".join(lines)

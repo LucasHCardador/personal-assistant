@@ -55,6 +55,13 @@ class AssistantStructuredReply(BaseModel):
             "when media was attached."
         ),
     )
+    send_as_audio: bool = Field(
+        default=False,
+        description=(
+            "Set true when the user asks for a summary (day/week/expenses) or explicitly "
+            "asks to hear/listen to the response in audio."
+        ),
+    )
 
     _undo_action_id: int | None = PrivateAttr(default=None)
     _pending_confirmation_id: int | None = PrivateAttr(default=None)

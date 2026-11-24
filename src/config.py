@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # Scheduler & Localization
     timezone: str = "America/Sao_Paulo"
     morning_summary_time: str = "07:30"
+    weekly_summary_day: Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"] = "sun"
+    weekly_summary_time: str = "19:00"
+
+    # Text-to-Speech (TTS)
+    tts_enabled: bool = True
+    tts_voice: str = "pt-BR-AntonioNeural"
 
     # Storage, Governance & Logging
     database_path: Path = Path("/app/data/assistant.db")
@@ -86,16 +92,16 @@ class Settings(BaseSettings):
             return None
         return value
 
-    @field_validator("morning_summary_time")
+    @field_validator("morning_summary_time", "weekly_summary_time")
     @classmethod
-    def validate_morning_summary_time(cls, value: str) -> str:
-        """Ensure morning_summary_time follows 24h HH:MM format."""
+    def validate_summary_time(cls, value: str) -> str:
+        """Ensure summary time settings follow 24h HH:MM format."""
         parts = value.split(":")
         if len(parts) != 2:
-            raise ValueError("MORNING_SUMMARY_TIME must follow HH:MM format.")
+            raise ValueError("Summary time must follow HH:MM format.")
         hour, minute = int(parts[0]), int(parts[1])
         if not (0 <= hour <= 23 and 0 <= minute <= 59):
-            raise ValueError("MORNING_SUMMARY_TIME must represent a valid 24h time.")
+            raise ValueError("Summary time must represent a valid 24h time.")
         return f"{hour:02d}:{minute:02d}"
 
 

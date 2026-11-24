@@ -14,6 +14,7 @@ from telegram.ext import (
 
 from src.agent.orchestrator import AgentOrchestrator
 from src.agent.tools.executor import ToolExecutor
+from src.agent.tts import SpeechSynthesizer
 from src.bot.handlers import BotHandlers
 from src.config import Settings
 from src.storage.database import Database
@@ -38,6 +39,7 @@ def build_telegram_application(
     orchestrator: AgentOrchestrator,
     database: Database,
     tool_executor: ToolExecutor | None = None,
+    tts: SpeechSynthesizer | None = None,
 ) -> Application:
     """Create and configure the python-telegram-bot Application."""
     app = Application.builder().token(settings.telegram_bot_token).concurrent_updates(True).build()
@@ -47,6 +49,7 @@ def build_telegram_application(
         orchestrator=orchestrator,
         database=database,
         tool_executor=tool_executor,
+        tts=tts,
     )
 
     app.add_handler(CommandHandler("start", handlers.start_command))

@@ -1,5 +1,6 @@
 """Proactive notification engine scheduled via APScheduler."""
 
+import io
 import logging
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
@@ -9,11 +10,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from telegram import Bot
 from telegram.constants import ParseMode
 
+from src.agent.tts import SpeechSynthesizer
 from src.bot.formatters import (
     format_event_alert,
     format_maintenance_alert,
     format_morning_summary,
     format_reminder_notification,
+    format_weekly_summary,
 )
 from src.config import Settings
 from src.integrations.google_calendar import GoogleCalendarService
@@ -62,13 +65,29 @@ class ProactiveNotifier:
         settings: Settings,
         calendar_service: GoogleCalendarService | None = None,
         sheets_service: GoogleSheetsService | None = None,
+        tts: SpeechSynthesizer | None = None,
     ) -> None:
         self._bot = bot
         self._db = database
         self._settings = settings
         self._calendar = calendar_service
         self._sheets = sheets_service
+        self._tts = tts
         self._tz = ZoneInfo(settings.timezone)
+
+    async def _send_voice(self, user_id: int, html_text: str, filename: str) -> None:
+        """Synthesize and send an in-memory voice message, logging failures gracefully."""
+        if self._tts is None:
+            return
+        try:
+            audio_bytes = await self._tts.synthesize(html_text)
+            buf = io.BytesIO(audio_bytes)
+            try:
+                await self._bot.send_voice(chat_id=user_id, voice=buf, filename=filename)
+            finally:
+                buf.close()
+        except Exception as exc:
+            logger.warning("Failed to send proactive voice to user %s: %s", user_id, exc)
 
     async def _send_html(self, user_id: int, text: str) -> bool:
         """Send an HTML message to a single Telegram user, logging failures."""
@@ -152,6 +171,52 @@ class ProactiveNotifier:
                 timezone_name=self._settings.timezone,
             )
             await self._send_html(user_id, message)
+            await self._send_voice(user_id, message, filename="resumo-diario.mp3")
+
+    async def send_weekly_summary(self, now: datetime | None = None) -> None:
+        """Send the weekly overview (text + voice) to all authorized users."""
+        if not self._settings.telegram_allowed_user_ids:
+            return
+
+        now_local = now.astimezone(self._tz) if now else datetime.now(self._tz)
+        start_date = now_local.date()
+        end_date = start_date + timedelta(days=7)
+        period_label = f"{start_date.strftime('%d/%m')} a {end_date.strftime('%d/%m')}"
+
+        events: list[dict[str, Any]] = []
+        if self._calendar is not None:
+            start_iso = datetime.combine(start_date, time.min, tzinfo=self._tz).isoformat()
+            end_iso = datetime.combine(end_date, time.max, tzinfo=self._tz).isoformat()
+            try:
+                cal_result = await self._calendar.list_events(
+                    start_iso=start_iso,
+                    end_iso=end_iso,
+                    max_results=50,
+                )
+                if cal_result.get("status") == "ok":
+                    events = cal_result.get("events", [])
+            except Exception as exc:
+                logger.warning("Failed to fetch weekly calendar events: %s", exc)
+
+        maintenance_items, _ = await self._fetch_alertable_maintenance(start_date)
+
+        for user_id in self._settings.telegram_allowed_user_ids:
+            pending = await self._db.list_reminders(user_id=user_id, status="pending")
+            week_reminders = [
+                reminder
+                for reminder in pending
+                if _parse_iso(reminder.trigger_at, self._tz).astimezone(self._tz).date()
+                <= end_date
+            ]
+            message = format_weekly_summary(
+                period_label=period_label,
+                events=events,
+                reminders=week_reminders,
+                maintenance_items=maintenance_items,
+                timezone_name=self._settings.timezone,
+            )
+            await self._send_html(user_id, message)
+            await self._send_voice(user_id, message, filename="resumo-semanal.mp3")
 
     async def check_upcoming_events(self, now: datetime | None = None) -> None:
         """Notify authorized users 24h and 1h before upcoming calendar events."""
@@ -282,5 +347,16 @@ def register_proactive_jobs(
         trigger="interval",
         minutes=1,
         id="proactive_due_reminders",
+        replace_existing=True,
+    )
+    weekly_hour_str, weekly_minute_str = settings.weekly_summary_time.split(":")
+    scheduler.add_job(
+        notifier.send_weekly_summary,
+        trigger="cron",
+        day_of_week=settings.weekly_summary_day,
+        hour=int(weekly_hour_str),
+        minute=int(weekly_minute_str),
+        timezone=tz,
+        id="proactive_weekly_summary",
         replace_existing=True,
     )

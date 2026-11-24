@@ -1,5 +1,6 @@
 """Telegram bot command and multimodal message handlers."""
 
+import io
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -10,6 +11,7 @@ from src.agent.orchestrator import AgentOrchestrator
 from src.agent.providers.base import TransientLLMError
 from src.agent.schemas import AssistantStructuredReply, MediaAttachment
 from src.agent.tools.executor import ToolExecutor
+from src.agent.tts import SpeechSynthesizer
 from src.bot.formatters import (
     format_help_message,
     format_structured_reply,
@@ -32,11 +34,13 @@ class BotHandlers:
         orchestrator: AgentOrchestrator,
         database: Database,
         tool_executor: ToolExecutor | None = None,
+        tts: SpeechSynthesizer | None = None,
     ) -> None:
         self._allowed_user_ids = allowed_user_ids
         self._orchestrator = orchestrator
         self._db = database
         self._tool_executor = tool_executor
+        self._tts = tts
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command."""
@@ -204,11 +208,23 @@ class BotHandlers:
                 ]
             )
 
+        formatted_html = format_structured_reply(reply)
         await message.reply_text(
-            format_structured_reply(reply),
+            formatted_html,
             parse_mode=ParseMode.HTML,
             reply_markup=reply_markup,
         )
+
+        if reply.send_as_audio and self._tts is not None:
+            try:
+                audio_bytes = await self._tts.synthesize(formatted_html)
+                audio_buf = io.BytesIO(audio_bytes)
+                try:
+                    await message.reply_voice(voice=audio_buf, filename="resumo.mp3")
+                finally:
+                    audio_buf.close()
+            except Exception as exc:
+                logger.warning("Failed to send voice reply for user_id=%s: %s", user_id, exc)
 
     async def undo_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle inline 'Desfazer' button clicks for recorded sheet writes."""

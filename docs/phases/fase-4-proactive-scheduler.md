@@ -22,13 +22,15 @@ Implementar o motor proativo no `APScheduler` para enviar o **resumo matinal di�
 - **[`src/agent/tools/registry.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/agent/tools/registry.py)**: `create_reminder`, `list_reminders` e `cancel_reminder` ficam sempre habilitadas por padrão, mesmo sem Google OAuth configurado.
 - **[`src/agent/tools/executor.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/agent/tools/executor.py)**: normalização de datas sem fuso para `TIMEZONE` e execução direta no SQLite.
 
-### 3. Motor Proativo e Formatadores HTML
-- **[`src/scheduler/proactive.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/scheduler/proactive.py)**: `ProactiveNotifier` e `register_proactive_jobs` registrando 4 jobs no `AsyncIOScheduler`:
-  - `proactive_morning_summary` (`cron` diário em `MORNING_SUMMARY_TIME` no `TIMEZONE`): envia agenda do dia, lembretes pendentes e itens de manutenção próximos/vencidos para `TELEGRAM_ALLOWED_USER_IDS`.
+### 3. Motor Proativo, Áudio (TTS) e Formatadores HTML
+- **[`src/scheduler/proactive.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/scheduler/proactive.py)**: `ProactiveNotifier` e `register_proactive_jobs` registrando 5 jobs no `AsyncIOScheduler`:
+  - `proactive_morning_summary` (`cron` diário em `MORNING_SUMMARY_TIME` no `TIMEZONE`): envia agenda do dia, lembretes pendentes e manutenções em texto e **áudio (TTS)**.
+  - `proactive_weekly_summary` (`cron` semanal em `WEEKLY_SUMMARY_DAY` e `WEEKLY_SUMMARY_TIME`): envia resumo dos próximos 7 dias em texto e **áudio (TTS)**.
   - `proactive_upcoming_events` (`interval` de 5 min): alerta **24h antes** (janela 23h–24h) e **1h antes** (janela 50–65 min) de compromissos com horário definido, deduplicado em `sent_notifications`.
   - `proactive_car_maintenance` (`cron` diário em `MORNING_SUMMARY_TIME`): alerta itens vencidos ou próximos (`<= 1000 km` ou `<= 15 dias`), deduplicado por chave diária.
   - `proactive_due_reminders` (`interval` de 1 min): dispara lembretes vencidos e atualiza recorrência/status apenas após confirmação de envio pelo Telegram.
-- **[`src/bot/formatters.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/bot/formatters.py)**: formatadores HTML determinísticos (`format_morning_summary`, `format_event_alert`, `format_maintenance_alert`, `format_reminder_notification`) com `html.escape()`.
+- **[`src/agent/tts.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/agent/tts.py)**: `SpeechSynthesizer` usando `edge-tts` em memória (`BytesIO`) para resumos diários, semanais e pedidos sob demanda (`send_as_audio=True`), configurável via `TTS_ENABLED` e `TTS_VOICE`.
+- **[`src/bot/formatters.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/bot/formatters.py)**: formatadores HTML determinísticos (`format_morning_summary`, `format_weekly_summary`, `format_event_alert`, `format_maintenance_alert`, `format_reminder_notification`) com `html.escape()`.
 - **[`src/main.py`](file:///home/lucas-cardador/projetos/personal-assistant/src/main.py)**: inicialização do `ProactiveNotifier` e registro dos jobs dentro de `on_startup`.
 
 ---

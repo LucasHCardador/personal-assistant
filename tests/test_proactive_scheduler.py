@@ -352,4 +352,5 @@ def test_register_proactive_jobs_adds_all_jobs(tmp_path: Path) -> None:
         "proactive_upcoming_events",
         "proactive_car_maintenance",
         "proactive_due_reminders",
+        "proactive_weekly_summary",
     }
