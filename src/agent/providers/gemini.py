@@ -142,19 +142,31 @@ class GeminiProvider(BaseLLMProvider):
 
         if gemini_tools and tool_executor is not None:
             for _ in range(MAX_TOOL_ITERATIONS):
+                # Do not set response_mime_type/response_schema while tools are active,
+                # otherwise Gemini skips function_calls and emits raw JSON directly.
                 response = await self._generate_with_fallback(
                     contents=contents,
                     config=types.GenerateContentConfig(
                         system_instruction=system_prompt,
                         tools=gemini_tools,
-                        response_mime_type="application/json",
-                        response_schema=AssistantStructuredReply,
                         temperature=0.2,
                     ),
                 )
                 function_calls = response.function_calls or []
                 if not function_calls:
-                    return self._parse_structured_response(response)
+                    if response.candidates and response.candidates[0].content:
+                        contents.append(response.candidates[0].content)
+                        contents.append(
+                            types.Content(
+                                role="user",
+                                parts=[
+                                    types.Part.from_text(
+                                        text="Formate a resposta final exatamente no schema JSON."
+                                    )
+                                ],
+                            )
+                        )
+                    break
 
                 if response.candidates and response.candidates[0].content:
                     contents.append(response.candidates[0].content)
