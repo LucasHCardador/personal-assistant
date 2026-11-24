@@ -37,6 +37,7 @@ class FakeProvider(BaseLLMProvider):
             summary="Recebido com sucesso",
             details=["Item 1", "Valor <R$ 100>"],
             next_step_hint="Algo mais?",
+            media_summary="Áudio sobre abastecimento de R$ 100",
         )
 
 

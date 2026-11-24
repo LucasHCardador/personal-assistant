@@ -38,3 +38,10 @@ class AssistantStructuredReply(BaseModel):
         default=None,
         description="Optional short suggestion or follow-up question for the user.",
     )
+    media_summary: str | None = Field(
+        default=None,
+        description=(
+            "Factual summary of what the user said in audio or showed in an image, "
+            "when media was attached."
+        ),
+    )

@@ -82,8 +82,19 @@ class AgentOrchestrator:
         )
 
         # Persist only text turns (ephemeral media bytes are never stored)
-        await self._db.add_chat_message(user_id=user_id, role="user", content=effective_text)
-        await self._db.add_chat_message(user_id=user_id, role="assistant", content=reply.summary)
+        user_record = effective_text
+        if forward_attachments and reply.media_summary:
+            user_record = f"{effective_text}\n[Resumo da mídia]: {reply.media_summary}"
+
+        assistant_record = reply.summary
+        if reply.details:
+            details_text = "; ".join(reply.details)
+            assistant_record = f"{reply.summary} ({details_text})"
+
+        await self._db.add_chat_message(user_id=user_id, role="user", content=user_record)
+        await self._db.add_chat_message(
+            user_id=user_id, role="assistant", content=assistant_record
+        )
 
         logger.info("Processed message for user_id=%s (intent=%s)", user_id, reply.intent)
         return reply
