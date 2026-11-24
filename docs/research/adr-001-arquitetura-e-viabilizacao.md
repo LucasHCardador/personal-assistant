@@ -127,34 +127,41 @@ Para acessar Calendar, Meet e Sheets de uma conta `@gmail.com` pessoal:
 
 ## 6. Roadmap de Execução em Fases
 
-### Fase 0: Setup de Credenciais e Esqueleto Docker
-- Criar o bot no `@BotFather` do Telegram e pegar o token + seu `user_id`.
-- Gerar a chave da API do Gemini no Google AI Studio.
+### Fase 0: Setup de Credenciais, Esqueleto Docker e Documentação Base
+- Criar o bot no `@BotFather` do Telegram e pegar o token + `user_id` (`@userinfobot`).
+- Gerar a chave gratuita da API do Gemini no Google AI Studio (ou outro provedor suportado).
 - Configurar o projeto no Google Cloud Console (OAuth 2.0) e rodar o script de autenticação local para gerar o `token.json`.
 - Subir estrutura inicial Python + `Dockerfile` + `docker-compose.yml`.
+- **Documentação (Zensical)**: Configurar `zensical.toml`, serviço opcional no `docker-compose.yml` e publicar a página inicial (`docs/index.md`) + documentação da Fase 0.
 
-### Fase 1: Core do Bot + Gemini Multimodal
-- Implementar o bot no Telegram com middleware de whitelist.
-- Conectar o Gemini (`gemini-2.5-flash` para agilidade e multimodalidade) aceitando **texto, áudio (`.ogg`) e imagens** na mesma conversa com memória de curto prazo.
+### Fase 1: Core do Bot + Camada Multi-Provedor de LLM + Governança
+- Implementar o bot no Telegram com middleware de whitelist (`TELEGRAM_ALLOWED_USER_IDS`).
+- Implementar `BaseLLMProvider` (Gemini Free Tier como padrão multimodal; suporte a Anthropic/Claude e OpenAI-compatible + `STT_PROVIDER` fallback).
+- Garantir mídia efêmera em memória (`BytesIO`), *Structured Outputs* (Pydantic + templates determinísticos) e job de higienização (`DATA_RETENTION_DAYS`).
+- **Documentação (Zensical)**: Documentar fluxo de mensagens, configuração de provedores de LLM/STT, políticas de privacidade/higienização e exemplos de uso.
 
 ### Fase 2: Google Sheets (Planilhas + Carro + Orçamento)
-- Script `setup_sheets.py` para criar as duas planilhas com formatação e fórmulas prontas no seu Google Drive.
-- Implementar as *tools* de lançamento de abastecimento, manutenção, orçamento e consulta de resumos.
-- *(Opcional)* Importar o histórico que você já tem no app do Gemini para as novas planilhas.
+- Script `setup_sheets.py` para criar as duas planilhas com formatação e fórmulas prontas no Google Drive.
+- Implementar as *tools* de lançamento de abastecimento, manutenção, orçamento e consulta de resumos com schemas Pydantic estritos.
+- *(Opcional)* Importar histórico existente para as novas planilhas.
+- **Documentação (Zensical)**: Documentar a estrutura das planilhas, colunas, fórmulas e comandos/exemplos financeiros e veiculares.
 
 ### Fase 3: Google Calendar + Google Meet + Botões de Confirmação
 - Implementar consulta, criação e edição de eventos (com criação automática de link do Google Meet).
 - Implementar o fluxo de confirmação via botões inline (`Confirmar` / `Cancelar`) para convites com terceiros e exclusões.
+- **Documentação (Zensical)**: Documentar permissões OAuth, fluxo de confirmação por botões inline e exemplos de agendamento com Meet.
 
 ### Fase 4: Motor Proativo (Scheduler)
-- **Resumo Matinal** (ex: 07:30): agenda do dia + lembretes + alertas de manutenção.
+- **Resumo Matinal** (`MORNING_SUMMARY_TIME`): agenda do dia + lembretes + alertas de manutenção.
 - **Alertas Antecipados**: notificações 1 dia antes e 1h antes dos compromissos do Calendar.
 - **Monitor de Manutenção**: avisa quando a quilometragem ou data se aproximar do limite de algum item do `Plano_Manutencao`.
 - **Lembretes Avulsos/Recorrentes**: disparos exatos para tarefas rápidas.
+- **Documentação (Zensical)**: Documentar o funcionamento dos jobs do `APScheduler`, configuração de `TIMEZONE` e gerenciamento de lembretes.
 
 ### Fase 5 (Expansão v2 — Futura)
-- Adicionar sua esposa na whitelist (com opção de agenda compartilhada ou individual).
+- Suporte aprimorado a múltiplos usuários autorizados (ex: familiares na whitelist com agendas compartilhadas/individuais).
 - Plugar novas *tools*: **Gmail** (resumo de e-mails), **Google Drive** (salvar fotos dos cupons fiscais vinculando o link na planilha) e **Google Tasks**.
+- **Documentação (Zensical)**: Documentar as novas integrações (Gmail/Drive/Tasks) e o guia de migração/atualização.
 
 ---
 

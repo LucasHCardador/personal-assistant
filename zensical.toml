@@ -1,0 +1,14 @@
+[project]
+site_name = "Personal Assistant Docs"
+site_description = "Documentação técnica e guias de uso do Personal Assistant (Telegram + LLM + Google Ecosystem)."
+docs_dir = "docs"
+
+nav = [
+    { "Início" = "index.md" },
+    { "Fases do Projeto" = [
+        { "Fase 0 — Setup Inicial e Infraestrutura" = "phases/fase-0-setup.md" }
+    ] },
+    { "Arquitetura (ADRs)" = [
+        { "ADR-001 — Arquitetura e Viabilização" = "research/adr-001-arquitetura-e-viabilizacao.md" }
+    ] },
+]

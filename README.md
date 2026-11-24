@@ -136,6 +136,32 @@ ruff check .
 
 ---
 
+## Servidor de Documentação (Zensical)
+
+O projeto utiliza o **[Zensical](https://zensical.org/)** para servir a documentação técnica e os registros de cada fase do desenvolvimento a partir da pasta `docs/` (configurado em `zensical.toml`).
+
+### Subir o servidor de documentação via Docker Compose
+
+```bash
+docker compose --profile docs up
+```
+
+Ou diretamente via `docker run`:
+
+```bash
+docker run --rm -it -p 8000:8000 -v ${PWD}:/docs zensical/zensical
+```
+
+Após subir, acesse **http://localhost:8000** no navegador. As alterações nos arquivos Markdown em `docs/` são recarregadas automaticamente.
+
+Para gerar os arquivos estáticos da documentação:
+
+```bash
+docker run --rm -it -v ${PWD}:/docs zensical/zensical build
+```
+
+---
+
 ## Como Usar no Dia a Dia
 
 Depois de iniciar o serviço e abrir o chat do seu bot no Telegram, basta enviar mensagens em linguagem natural (texto, áudio ou foto):

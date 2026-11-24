@@ -12,3 +12,13 @@ services:
     volumes:
       - ./data:/app/data
       - ./credentials:/app/credentials
+
+  docs:
+    image: zensical/zensical:latest
+    container_name: personal-assistant-docs
+    profiles:
+      - docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/docs

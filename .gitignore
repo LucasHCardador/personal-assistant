@@ -30,11 +30,12 @@ build/
 venv/
 ENV/
 
-# Testing & linters
+# Testing, linters & docs build
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
+site/
 
 # OS & IDEs
 .DS_Store
