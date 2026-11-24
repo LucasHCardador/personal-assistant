@@ -173,6 +173,10 @@ class UpdateCalendarEventInput(BaseModel):
     )
     description: str | None = Field(default=None, description="Nova descrição (opcional).")
     location: str | None = Field(default=None, description="Novo local (opcional).")
+    attendees: list[str] = Field(
+        default_factory=list,
+        description="Lista de e-mails para convidar/compartilhar este evento (opcional).",
+    )
 
 
 class DeleteCalendarEventInput(BaseModel):

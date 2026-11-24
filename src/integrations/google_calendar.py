@@ -175,8 +175,9 @@ class GoogleCalendarService:
         end_iso: str | None = None,
         description: str | None = None,
         location: str | None = None,
+        attendees: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Patch fields of an existing calendar event."""
+        """Patch fields of an existing calendar event, merging new attendees if given."""
         body: dict[str, Any] = {}
         if summary is not None:
             body["summary"] = summary
@@ -195,16 +196,36 @@ class GoogleCalendarService:
                 "timeZone": self._timezone_name,
             }
 
-        if not body:
+        clean_attendees = [email.strip() for email in (attendees or []) if email.strip()]
+        if not body and not clean_attendees:
             return {"status": "error", "error": "Nenhum campo informado para atualização."}
 
         def _run() -> dict[str, Any]:
+            if clean_attendees:
+                existing = (
+                    self._service.events()
+                    .get(calendarId=self._calendar_id, eventId=event_id)
+                    .execute()
+                )
+                merged = list(existing.get("attendees") or [])
+                seen = {
+                    str(item.get("email", "")).strip().lower()
+                    for item in merged
+                    if item.get("email")
+                }
+                for email in clean_attendees:
+                    if email.lower() not in seen:
+                        merged.append({"email": email})
+                        seen.add(email.lower())
+                body["attendees"] = merged
+
             return (
                 self._service.events()
                 .patch(
                     calendarId=self._calendar_id,
                     eventId=event_id,
                     body=body,
+                    sendUpdates="all" if clean_attendees else "none",
                 )
                 .execute()
             )

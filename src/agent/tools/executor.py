@@ -252,6 +252,28 @@ class ToolExecutor:
 
         if tool_name == "update_calendar_event":
             parsed_update = UpdateCalendarEventInput.model_validate(arguments)
+            clean_attendees = [e.strip() for e in parsed_update.attendees if e.strip()]
+            if clean_attendees:
+                summary_text = (
+                    f"Compartilhar evento '{parsed_update.event_id}' com: "
+                    f"{', '.join(clean_attendees)}"
+                )
+                confirmation_id = await self._db.create_pending_confirmation(
+                    user_id=user_id,
+                    tool_name="update_calendar_event",
+                    args={**parsed_update.model_dump(), "attendees": clean_attendees},
+                    summary_text=summary_text,
+                )
+                return {
+                    "status": "confirmation_required",
+                    "pending_confirmation_id": confirmation_id,
+                    "summary_text": summary_text,
+                    "message": (
+                        "Compartilhamento/convite com participantes externos aguarda "
+                        "confirmação via botão inline."
+                    ),
+                }
+
             return await self._calendar.update_event(
                 event_id=parsed_update.event_id,
                 summary=parsed_update.summary,
@@ -294,7 +316,7 @@ class ToolExecutor:
         if self._calendar is None:
             return None
         try:
-            tz = ZoneInfo(self._timezone_name)
+            tz = self._tz
             parsed = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=tz)
@@ -438,6 +460,17 @@ class ToolExecutor:
             )
             result = await self._record_calendar_action(
                 user_id, "create_calendar_event", result
+            )
+        elif record.tool_name == "update_calendar_event":
+            parsed_update = UpdateCalendarEventInput.model_validate(record.args)
+            result = await self._calendar.update_event(
+                event_id=parsed_update.event_id,
+                summary=parsed_update.summary,
+                start_iso=parsed_update.start_iso,
+                end_iso=parsed_update.end_iso,
+                description=parsed_update.description,
+                location=parsed_update.location,
+                attendees=parsed_update.attendees or None,
             )
         elif record.tool_name == "delete_calendar_event":
             parsed_delete = DeleteCalendarEventInput.model_validate(record.args)
