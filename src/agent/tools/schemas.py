@@ -150,6 +150,14 @@ class CreateCalendarEventInput(BaseModel):
         default=False,
         description="Se true, gera automaticamente um link de videoconferência do Google Meet.",
     )
+    recurrence_rrule: str | None = Field(
+        default=None,
+        description=(
+            "Regra opcional de recorrência RFC 5545 RRULE "
+            "(ex: 'RRULE:FREQ=WEEKLY;INTERVAL=2' para quinzenal, "
+            "'RRULE:FREQ=WEEKLY' para semanal, 'RRULE:FREQ=MONTHLY' para mensal)."
+        ),
+    )
 
 
 class UpdateCalendarEventInput(BaseModel):

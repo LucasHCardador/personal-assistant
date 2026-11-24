@@ -231,6 +231,13 @@ class ToolExecutor:
                     ),
                 }
 
+            recurrence: list[str] | None = None
+            if parsed_create.recurrence_rrule:
+                rule = parsed_create.recurrence_rrule.strip()
+                if not rule.upper().startswith("RRULE:"):
+                    rule = f"RRULE:{rule}"
+                recurrence = [rule]
+
             result = await self._calendar.create_event(
                 summary=parsed_create.summary,
                 start_iso=parsed_create.start_iso,
@@ -239,6 +246,7 @@ class ToolExecutor:
                 location=parsed_create.location,
                 attendees=None,
                 create_meet=parsed_create.create_meet,
+                recurrence=recurrence,
             )
             return await self._record_calendar_action(user_id, tool_name, result)
 

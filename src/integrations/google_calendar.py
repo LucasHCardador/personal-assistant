@@ -108,6 +108,7 @@ class GoogleCalendarService:
         location: str | None = None,
         attendees: list[str] | None = None,
         create_meet: bool = False,
+        recurrence: list[str] | None = None,
     ) -> dict[str, Any]:
         """Create a calendar event, optionally generating a Google Meet link."""
         clean_attendees = [email.strip() for email in (attendees or []) if email.strip()]
@@ -128,6 +129,8 @@ class GoogleCalendarService:
             body["location"] = location
         if clean_attendees:
             body["attendees"] = [{"email": email} for email in clean_attendees]
+        if recurrence:
+            body["recurrence"] = recurrence
         if create_meet:
             body["conferenceData"] = {
                 "createRequest": {
