@@ -202,7 +202,7 @@ def main() -> None:
 
     app.post_init = on_startup
     app.post_shutdown = on_shutdown
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=False)
 
 
 if __name__ == "__main__":
