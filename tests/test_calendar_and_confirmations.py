@@ -233,7 +233,7 @@ async def test_orchestrator_sets_pending_confirmation_id(tmp_path: Path) -> None
     executor = ToolExecutor(database=db, calendar_service=calendar_service)
     registry = ToolRegistry(enable_calendar_tools=True, enable_undo_tool=True)
 
-    assert len(registry.definitions) == 5
+    assert len(registry.definitions) == 8
 
     class _ConfirmProvider(BaseLLMProvider):
         async def generate_structured_reply(

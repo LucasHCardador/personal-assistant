@@ -1,5 +1,6 @@
 """Local SQLite persistence and retention-policy management."""
 
+import calendar
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,42 @@ class PendingConfirmationRecord:
     summary_text: str
     status: str
     created_at: str
+
+
+@dataclass(frozen=True)
+class ReminderRecord:
+    """Persisted reminder record from `reminders`."""
+
+    id: int
+    user_id: int
+    title: str
+    trigger_at: str
+    recurrence: str | None
+    status: str
+    created_at: str
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    """Parse an ISO-8601 timestamp, attaching UTC if naive."""
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _advance_trigger_at(trigger_at: str, recurrence: str) -> str:
+    """Compute the next ISO-8601 trigger timestamp for a recurring reminder."""
+    dt = _parse_iso_datetime(trigger_at)
+    if recurrence == "daily":
+        return (dt + timedelta(days=1)).isoformat()
+    if recurrence == "weekly":
+        return (dt + timedelta(weeks=1)).isoformat()
+    if recurrence == "monthly":
+        year = dt.year + (dt.month // 12)
+        month = (dt.month % 12) + 1
+        max_day = calendar.monthrange(year, month)[1]
+        return dt.replace(year=year, month=month, day=min(dt.day, max_day)).isoformat()
+    raise ValueError(f"Unsupported recurrence: {recurrence}")
 
 
 class Database:
@@ -300,6 +337,174 @@ class Database:
             )
             await db.commit()
             return (cursor.rowcount or 0) > 0
+
+    async def create_reminder(
+        self,
+        *,
+        user_id: int,
+        title: str,
+        trigger_at: str,
+        recurrence: str | None = None,
+    ) -> int:
+        """Create a reminder record and return its ID."""
+        normalized_recurrence = None if recurrence in (None, "", "once") else recurrence
+        if normalized_recurrence not in (None, "daily", "weekly", "monthly"):
+            raise ValueError(f"Invalid recurrence: {recurrence}")
+
+        now_iso = datetime.now(UTC).isoformat()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT INTO reminders (user_id, title, trigger_at, recurrence, status, created_at)
+                VALUES (?, ?, ?, ?, 'pending', ?)
+                """,
+                (user_id, title, trigger_at, normalized_recurrence, now_iso),
+            )
+            await db.commit()
+            return int(cursor.lastrowid or 0)
+
+    async def list_reminders(
+        self,
+        user_id: int,
+        *,
+        status: str | None = "pending",
+    ) -> list[ReminderRecord]:
+        """Return reminders for `user_id`, optionally filtered by status."""
+        async with aiosqlite.connect(self._db_path) as db:
+            if status is None:
+                cursor = await db.execute(
+                    """
+                    SELECT id, user_id, title, trigger_at, recurrence, status, created_at
+                    FROM reminders
+                    WHERE user_id = ?
+                    ORDER BY trigger_at ASC, id ASC
+                    """,
+                    (user_id,),
+                )
+            else:
+                cursor = await db.execute(
+                    """
+                    SELECT id, user_id, title, trigger_at, recurrence, status, created_at
+                    FROM reminders
+                    WHERE user_id = ? AND status = ?
+                    ORDER BY trigger_at ASC, id ASC
+                    """,
+                    (user_id, status),
+                )
+            rows = await cursor.fetchall()
+
+        records = [
+            ReminderRecord(
+                id=int(row[0]),
+                user_id=int(row[1]),
+                title=str(row[2]),
+                trigger_at=str(row[3]),
+                recurrence=str(row[4]) if row[4] is not None else None,
+                status=str(row[5]),
+                created_at=str(row[6]),
+            )
+            for row in rows
+        ]
+        records.sort(key=lambda r: (_parse_iso_datetime(r.trigger_at), r.id))
+        return records
+
+    async def cancel_reminder(self, reminder_id: int, user_id: int) -> bool:
+        """Cancel a pending reminder owned by `user_id`."""
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                UPDATE reminders
+                SET status = 'cancelled'
+                WHERE id = ? AND user_id = ? AND status = 'pending'
+                """,
+                (reminder_id, user_id),
+            )
+            await db.commit()
+            return (cursor.rowcount or 0) > 0
+
+    async def get_due_reminders(self, now_iso: str | None = None) -> list[ReminderRecord]:
+        """Return all pending reminders whose `trigger_at` is at or before `now_iso`."""
+        now_dt = _parse_iso_datetime(now_iso) if now_iso else datetime.now(UTC)
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT id, user_id, title, trigger_at, recurrence, status, created_at
+                FROM reminders
+                WHERE status = 'pending'
+                ORDER BY trigger_at ASC, id ASC
+                """
+            )
+            rows = await cursor.fetchall()
+
+        due: list[ReminderRecord] = []
+        for row in rows:
+            # Parse timestamps in Python so mixed timezone offsets compare accurately.
+            if _parse_iso_datetime(str(row[3])) <= now_dt:
+                due.append(
+                    ReminderRecord(
+                        id=int(row[0]),
+                        user_id=int(row[1]),
+                        title=str(row[2]),
+                        trigger_at=str(row[3]),
+                        recurrence=str(row[4]) if row[4] is not None else None,
+                        status=str(row[5]),
+                        created_at=str(row[6]),
+                    )
+                )
+        return due
+
+    async def mark_reminder_dispatched(self, reminder_id: int) -> bool:
+        """Advance `trigger_at` for recurring reminders or mark one-shot reminders as sent."""
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT trigger_at, recurrence
+                FROM reminders
+                WHERE id = ? AND status = 'pending'
+                """,
+                (reminder_id,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                return False
+
+            trigger_at, recurrence = str(row[0]), row[1]
+            if recurrence in ("daily", "weekly", "monthly"):
+                next_trigger = _advance_trigger_at(trigger_at, str(recurrence))
+                await db.execute(
+                    "UPDATE reminders SET trigger_at = ? WHERE id = ? AND status = 'pending'",
+                    (next_trigger, reminder_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE reminders SET status = 'sent' WHERE id = ? AND status = 'pending'",
+                    (reminder_id,),
+                )
+            await db.commit()
+            return True
+
+    async def has_notification_been_sent(self, notification_key: str) -> bool:
+        """Return True if `notification_key` has already been recorded."""
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                "SELECT 1 FROM sent_notifications WHERE notification_key = ? LIMIT 1",
+                (notification_key,),
+            )
+            row = await cursor.fetchone()
+        return row is not None
+
+    async def mark_notification_sent(self, notification_key: str) -> None:
+        """Record `notification_key` idempotently to prevent duplicate alerts."""
+        now_iso = datetime.now(UTC).isoformat()
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute(
+                """
+                INSERT OR IGNORE INTO sent_notifications (notification_key, sent_at)
+                VALUES (?, ?)
+                """,
+                (notification_key, now_iso),
+            )
+            await db.commit()
 
     async def purge_expired_data(self, retention_days: int) -> dict[str, int]:
         """Remove records older than `retention_days` to enforce data governance."""

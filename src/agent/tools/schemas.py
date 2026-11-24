@@ -164,3 +164,31 @@ class DeleteCalendarEventInput(BaseModel):
         default=None,
         description="Título do evento para exibir no pedido de confirmação (opcional).",
     )
+
+
+class CreateReminderInput(BaseModel):
+    """Input schema for creating a one-shot or recurring reminder."""
+
+    title: str = Field(min_length=1, description="Texto ou título do lembrete.")
+    trigger_at_iso: str = Field(
+        description="Data e hora do disparo no formato ISO 8601 (ex: 2026-11-24T09:00:00-03:00)."
+    )
+    recurrence: Literal["once", "daily", "weekly", "monthly"] = Field(
+        default="once",
+        description="Frequência do lembrete: 'once', 'daily', 'weekly' ou 'monthly'.",
+    )
+
+
+class ListRemindersInput(BaseModel):
+    """Input schema for listing user reminders."""
+
+    status: Literal["pending", "sent", "cancelled", "all"] = Field(
+        default="pending",
+        description="Filtro de status dos lembretes: 'pending', 'sent', 'cancelled' ou 'all'.",
+    )
+
+
+class CancelReminderInput(BaseModel):
+    """Input schema for cancelling a pending reminder."""
+
+    reminder_id: int = Field(gt=0, description="ID numérico do lembrete a cancelar.")

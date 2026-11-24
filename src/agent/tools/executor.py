@@ -1,18 +1,23 @@
 """Tool executor validating inputs, running integrations, and managing undo/confirmations."""
 
 import logging
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pydantic import ValidationError
 
 from src.agent.tools.schemas import (
     BudgetExpenseInput,
     BudgetSummaryQuery,
+    CancelReminderInput,
     CarExpenseInput,
     CreateCalendarEventInput,
+    CreateReminderInput,
     DeleteCalendarEventInput,
     FuelExpenseInput,
     ListCalendarEventsInput,
+    ListRemindersInput,
     MaintenanceStatusQuery,
     UndoActionInput,
     UpdateCalendarEventInput,
@@ -32,6 +37,14 @@ _CALENDAR_TOOLS = frozenset(
     }
 )
 
+_REMINDER_TOOLS = frozenset(
+    {
+        "create_reminder",
+        "list_reminders",
+        "cancel_reminder",
+    }
+)
+
 
 class ToolExecutor:
     """Executes validated agent tools and persists reversible/confirmable actions in SQLite."""
@@ -42,10 +55,12 @@ class ToolExecutor:
         database: Database,
         sheets_service: GoogleSheetsService | None = None,
         calendar_service: GoogleCalendarService | None = None,
+        timezone_name: str = "America/Sao_Paulo",
     ) -> None:
         self._db = database
         self._sheets = sheets_service
         self._calendar = calendar_service
+        self._timezone = ZoneInfo(timezone_name)
 
     async def execute(
         self,
@@ -59,6 +74,13 @@ class ToolExecutor:
             if tool_name == "undo_last_action":
                 parsed_undo = UndoActionInput.model_validate(arguments)
                 return await self.undo_action(user_id=user_id, action_id=parsed_undo.action_id)
+
+            if tool_name in _REMINDER_TOOLS:
+                return await self._execute_reminder_tool(
+                    user_id=user_id,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                )
 
             if tool_name in _CALENDAR_TOOLS:
                 return await self._execute_calendar_tool(
@@ -231,6 +253,73 @@ class ToolExecutor:
             }
 
         return {"status": "error", "error": f"Unknown calendar tool: {tool_name}"}
+
+    async def _execute_reminder_tool(
+        self,
+        *,
+        user_id: int,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Execute local SQLite reminder tools."""
+        if tool_name == "create_reminder":
+            parsed = CreateReminderInput.model_validate(arguments)
+            parsed_dt = datetime.fromisoformat(parsed.trigger_at_iso.replace("Z", "+00:00"))
+            if parsed_dt.tzinfo is None:
+                parsed_dt = parsed_dt.replace(tzinfo=self._timezone)
+            normalized_iso = parsed_dt.isoformat()
+            recurrence_db = None if parsed.recurrence == "once" else parsed.recurrence
+            reminder_id = await self._db.create_reminder(
+                user_id=user_id,
+                title=parsed.title,
+                trigger_at=normalized_iso,
+                recurrence=recurrence_db,
+            )
+            return {
+                "status": "ok",
+                "reminder_id": reminder_id,
+                "title": parsed.title,
+                "trigger_at": normalized_iso,
+                "recurrence": parsed.recurrence,
+            }
+
+        if tool_name == "list_reminders":
+            parsed_list = ListRemindersInput.model_validate(arguments)
+            status_filter = None if parsed_list.status == "all" else parsed_list.status
+            records = await self._db.list_reminders(user_id=user_id, status=status_filter)
+            return {
+                "status": "ok",
+                "count": len(records),
+                "reminders": [
+                    {
+                        "id": record.id,
+                        "title": record.title,
+                        "trigger_at": record.trigger_at,
+                        "recurrence": record.recurrence or "once",
+                        "status": record.status,
+                    }
+                    for record in records
+                ],
+            }
+
+        if tool_name == "cancel_reminder":
+            parsed_cancel = CancelReminderInput.model_validate(arguments)
+            cancelled = await self._db.cancel_reminder(
+                reminder_id=parsed_cancel.reminder_id,
+                user_id=user_id,
+            )
+            if not cancelled:
+                return {
+                    "status": "not_found",
+                    "message": "Lembrete não encontrado ou já finalizado.",
+                }
+            return {
+                "status": "ok",
+                "reminder_id": parsed_cancel.reminder_id,
+                "message": "Lembrete cancelado.",
+            }
+
+        return {"status": "error", "error": f"Unknown reminder tool: {tool_name}"}
 
     async def execute_pending_confirmation(
         self,

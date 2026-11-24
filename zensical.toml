@@ -9,7 +9,8 @@ nav = [
         { "Fase 0 — Setup Inicial e Infraestrutura" = "phases/fase-0-setup.md" },
         { "Fase 1 — Core do Bot, Multi-LLM e Governança" = "phases/fase-1-core-bot.md" },
         { "Fase 2 — Google Sheets, Tool Calling e Undo" = "phases/fase-2-google-sheets.md" },
-        { "Fase 3 — Google Calendar, Google Meet e Confirmação Inline" = "phases/fase-3-calendar-meet.md" }
+        { "Fase 3 — Google Calendar, Google Meet e Confirmação Inline" = "phases/fase-3-calendar-meet.md" },
+        { "Fase 4 — Motor Proativo (Scheduler e Lembretes)" = "phases/fase-4-proactive-scheduler.md" }
     ] },
     { "Arquitetura (ADRs)" = [
         { "ADR-001 — Arquitetura e Viabilização" = "research/adr-001-arquitetura-e-viabilizacao.md" }

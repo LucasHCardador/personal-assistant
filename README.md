@@ -183,7 +183,8 @@ Depois de iniciar o serviço e abrir o chat do seu bot no Telegram, basta enviar
 - **Mercado / Orçamento**: *"Gastei 189,90 no supermercado hoje no cartão de crédito"*.
 - **Agenda / Consultas**: *"Marca consulta do pediatra na quinta-feira às 14h"*.
 - **Reunião no Google Meet**: *"Agenda um Meet com fulano@email.com amanhã às 10h sobre o projeto"*.
-- **Consultas rápidas**: *"O que eu tenho na agenda hoje?"* ou *"Quanto já gastei de mercado este mês?"*.
+- **Lembretes avulsos ou recorrentes**: *"Me lembra amanhã às 09:00 de pagar a fatura"* ou *"Cria um lembrete diário às 08:00 para tomar vitamina"*.
+- **Consultas rápidas**: *"O que eu tenho na agenda hoje?"*, *"Quais são meus lembretes pendentes?"* ou *"Quanto já gastei de mercado este mês?"*.
 
 > **Nota de desenvolvimento**: o projeto está sendo construído de forma incremental. A estrutura base, configuração e Docker estão prontos; os handlers do Telegram, agente Gemini e integrações Google estão sendo implementados por fases conforme o roadmap da ADR.
 

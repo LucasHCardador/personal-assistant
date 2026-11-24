@@ -18,6 +18,7 @@ from src.integrations.google_auth import load_google_credentials
 from src.integrations.google_calendar import GoogleCalendarService
 from src.integrations.google_sheets import GoogleSheetsService
 from src.scheduler.housekeeping import build_housekeeping_scheduler
+from src.scheduler.proactive import ProactiveNotifier, register_proactive_jobs
 from src.storage.database import Database
 
 
@@ -150,6 +151,7 @@ def main() -> None:
         database=database,
         sheets_service=sheets_service,
         calendar_service=calendar_service,
+        timezone_name=settings.timezone,
     )
 
     orchestrator = AgentOrchestrator(
@@ -173,11 +175,19 @@ def main() -> None:
         tool_executor=tool_executor,
     )
 
-    async def on_startup(_: Application) -> None:
+    async def on_startup(application: Application) -> None:
         await database.init()
+        notifier = ProactiveNotifier(
+            bot=application.bot,
+            database=database,
+            settings=settings,
+            calendar_service=calendar_service,
+            sheets_service=sheets_service,
+        )
+        register_proactive_jobs(scheduler, notifier, settings)
         scheduler.start()
         logger.info(
-            "Database initialized and housekeeping scheduler started (tools_enabled=%d).",
+            "Database initialized and scheduler started with proactive jobs (tools_enabled=%d).",
             len(tool_registry.definitions),
         )
 

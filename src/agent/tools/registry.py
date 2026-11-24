@@ -8,11 +8,14 @@ from src.agent.schemas import ToolDefinition
 from src.agent.tools.schemas import (
     BudgetExpenseInput,
     BudgetSummaryQuery,
+    CancelReminderInput,
     CarExpenseInput,
     CreateCalendarEventInput,
+    CreateReminderInput,
     DeleteCalendarEventInput,
     FuelExpenseInput,
     ListCalendarEventsInput,
+    ListRemindersInput,
     MaintenanceStatusQuery,
     UndoActionInput,
     UpdateCalendarEventInput,
@@ -36,6 +39,7 @@ class ToolRegistry:
         enable_budget_tools: bool = False,
         enable_calendar_tools: bool = False,
         enable_undo_tool: bool = False,
+        enable_reminder_tools: bool = True,
     ) -> None:
         self._definitions: list[ToolDefinition] = []
 
@@ -139,6 +143,30 @@ class ToolRegistry:
                     ),
                     parameters_schema=_clean_json_schema(UndoActionInput),
                 )
+            )
+
+        if enable_reminder_tools:
+            self._definitions.extend(
+                [
+                    ToolDefinition(
+                        name="create_reminder",
+                        description=(
+                            "Cria um lembrete avulso ou recorrente (daily, weekly, monthly) "
+                            "para notificar o usuário no Telegram na data e hora especificadas."
+                        ),
+                        parameters_schema=_clean_json_schema(CreateReminderInput),
+                    ),
+                    ToolDefinition(
+                        name="list_reminders",
+                        description="Lista os lembretes cadastrados pelo usuário.",
+                        parameters_schema=_clean_json_schema(ListRemindersInput),
+                    ),
+                    ToolDefinition(
+                        name="cancel_reminder",
+                        description="Cancela um lembrete pendente pelo seu ID.",
+                        parameters_schema=_clean_json_schema(CancelReminderInput),
+                    ),
+                ]
             )
 
     @property
