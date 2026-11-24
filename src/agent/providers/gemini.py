@@ -18,7 +18,10 @@ class GeminiProvider(BaseLLMProvider):
     supports_vision = True
 
     def __init__(self, api_key: str, model: str) -> None:
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=30000),
+        )
         self._model = model
 
     async def generate_structured_reply(

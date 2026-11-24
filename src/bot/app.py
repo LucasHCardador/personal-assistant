@@ -15,7 +15,7 @@ def build_telegram_application(
     database: Database,
 ) -> Application:
     """Create and configure the python-telegram-bot Application."""
-    app = Application.builder().token(settings.telegram_bot_token).build()
+    app = Application.builder().token(settings.telegram_bot_token).concurrent_updates(True).build()
 
     handlers = BotHandlers(
         allowed_user_ids=settings.telegram_allowed_user_ids,
