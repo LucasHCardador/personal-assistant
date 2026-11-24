@@ -1,12 +1,35 @@
 """Telegram Application builder registering commands, callbacks, and multimodal handlers."""
 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
+import logging
+
+from telegram.error import NetworkError
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from src.agent.orchestrator import AgentOrchestrator
 from src.agent.tools.executor import ToolExecutor
 from src.bot.handlers import BotHandlers
 from src.config import Settings
 from src.storage.database import Database
+
+logger = logging.getLogger(__name__)
+
+
+async def _handle_telegram_error(
+    _update: object, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Log transient Telegram network errors concisely without noisy tracebacks."""
+    err = context.error
+    if isinstance(err, NetworkError):
+        logger.warning("Transient Telegram network error: %s", err)
+        return
+    logger.error("Unhandled Telegram application error: %s", err, exc_info=err)
 
 
 def build_telegram_application(
@@ -36,5 +59,6 @@ def build_telegram_application(
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text_message))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handlers.voice_message))
     app.add_handler(MessageHandler(filters.PHOTO, handlers.photo_message))
+    app.add_error_handler(_handle_telegram_error)
 
     return app
