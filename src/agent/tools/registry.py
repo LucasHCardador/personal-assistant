@@ -9,9 +9,13 @@ from src.agent.tools.schemas import (
     BudgetExpenseInput,
     BudgetSummaryQuery,
     CarExpenseInput,
+    CreateCalendarEventInput,
+    DeleteCalendarEventInput,
     FuelExpenseInput,
+    ListCalendarEventsInput,
     MaintenanceStatusQuery,
     UndoActionInput,
+    UpdateCalendarEventInput,
 )
 
 
@@ -30,6 +34,7 @@ class ToolRegistry:
         *,
         enable_car_tools: bool = False,
         enable_budget_tools: bool = False,
+        enable_calendar_tools: bool = False,
         enable_undo_tool: bool = False,
     ) -> None:
         self._definitions: list[ToolDefinition] = []
@@ -85,13 +90,52 @@ class ToolRegistry:
                 ]
             )
 
+        if enable_calendar_tools:
+            self._definitions.extend(
+                [
+                    ToolDefinition(
+                        name="list_calendar_events",
+                        description=(
+                            "Lista compromissos e reuniões do Google Calendar em um intervalo "
+                            "de datas."
+                        ),
+                        parameters_schema=_clean_json_schema(ListCalendarEventsInput),
+                    ),
+                    ToolDefinition(
+                        name="create_calendar_event",
+                        description=(
+                            "Cria um compromisso ou reunião no Google Calendar, com suporte a "
+                            "link do Google Meet e lista de convidados. Convites com participantes "
+                            "exigem confirmação do usuário antes do envio."
+                        ),
+                        parameters_schema=_clean_json_schema(CreateCalendarEventInput),
+                    ),
+                    ToolDefinition(
+                        name="update_calendar_event",
+                        description=(
+                            "Atualiza ou reagenda um compromisso existente no Google Calendar "
+                            "a partir do seu event_id."
+                        ),
+                        parameters_schema=_clean_json_schema(UpdateCalendarEventInput),
+                    ),
+                    ToolDefinition(
+                        name="delete_calendar_event",
+                        description=(
+                            "Solicita confirmação do usuário para excluir um compromisso do "
+                            "Google Calendar a partir do seu event_id."
+                        ),
+                        parameters_schema=_clean_json_schema(DeleteCalendarEventInput),
+                    ),
+                ]
+            )
+
         if enable_undo_tool:
             self._definitions.append(
                 ToolDefinition(
                     name="undo_last_action",
                     description=(
-                        "Desfaz o último lançamento gravado em planilha pelo usuário "
-                        "(remove a linha correspondente)."
+                        "Desfaz o último lançamento em planilha ou evento criado na agenda "
+                        "pelo usuário."
                     ),
                     parameters_schema=_clean_json_schema(UndoActionInput),
                 )

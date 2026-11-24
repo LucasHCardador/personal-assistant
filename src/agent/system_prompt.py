@@ -11,7 +11,9 @@ def build_system_prompt(timezone_name: str, has_tools: bool = False) -> str:
 
     tool_rule = (
         "3. Só confirme que um dado foi salvo ou agendado após executar a ferramenta "
-        "correspondente e receber sucesso.\n"
+        "correspondente e receber sucesso. Se a ferramenta retornar status "
+        "'confirmation_required', informe ao usuário que a ação aguarda confirmação pelos "
+        "botões abaixo da mensagem.\n"
         if has_tools
         else "3. Ainda não há ferramentas externas (Planilhas/Agenda) conectadas nesta etapa: "
         "NUNCA afirme que gravou ou agendou algo; apenas extraia e apresente os dados.\n"

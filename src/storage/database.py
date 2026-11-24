@@ -25,6 +25,19 @@ class ActionRecord:
     created_at: str
 
 
+@dataclass(frozen=True)
+class PendingConfirmationRecord:
+    """Persisted pending confirmation record from `pending_confirmations`."""
+
+    id: int
+    user_id: int
+    tool_name: str
+    args: dict[str, Any]
+    summary_text: str
+    status: str
+    created_at: str
+
+
 class Database:
     """Async SQLite repository for short-term context, reminders, and audit history."""
 
@@ -72,6 +85,16 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     notification_key TEXT NOT NULL UNIQUE,
                     sent_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS pending_confirmations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    tool_name TEXT NOT NULL,
+                    args_json TEXT NOT NULL,
+                    summary_text TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL
                 );
                 """
             )
@@ -202,6 +225,82 @@ class Database:
             await db.commit()
             return (cursor.rowcount or 0) > 0
 
+    async def create_pending_confirmation(
+        self,
+        *,
+        user_id: int,
+        tool_name: str,
+        args: dict[str, Any],
+        summary_text: str,
+    ) -> int:
+        """Create a pending confirmation record and return its ID."""
+        now_iso = datetime.now(UTC).isoformat()
+        args_json = json.dumps(args, ensure_ascii=False)
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT INTO pending_confirmations (
+                    user_id, tool_name, args_json, summary_text, status, created_at
+                )
+                VALUES (?, ?, ?, ?, 'pending', ?)
+                """,
+                (user_id, tool_name, args_json, summary_text, now_iso),
+            )
+            await db.commit()
+            return int(cursor.lastrowid or 0)
+
+    async def get_pending_confirmation(
+        self,
+        confirmation_id: int,
+        user_id: int,
+    ) -> PendingConfirmationRecord | None:
+        """Return a pending confirmation record owned by `user_id`, if it exists."""
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT id, user_id, tool_name, args_json, summary_text, status, created_at
+                FROM pending_confirmations
+                WHERE id = ? AND user_id = ?
+                """,
+                (confirmation_id, user_id),
+            )
+            row = await cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return PendingConfirmationRecord(
+            id=int(row[0]),
+            user_id=int(row[1]),
+            tool_name=str(row[2]),
+            args=json.loads(str(row[3])),
+            summary_text=str(row[4]),
+            status=str(row[5]),
+            created_at=str(row[6]),
+        )
+
+    async def resolve_pending_confirmation(
+        self,
+        confirmation_id: int,
+        user_id: int,
+        status: str,
+    ) -> bool:
+        """Transition a pending confirmation to `confirmed` or `cancelled`."""
+        if status not in ("confirmed", "cancelled"):
+            raise ValueError(f"Invalid confirmation status: {status}")
+
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                """
+                UPDATE pending_confirmations
+                SET status = ?
+                WHERE id = ? AND user_id = ? AND status = 'pending'
+                """,
+                (status, confirmation_id, user_id),
+            )
+            await db.commit()
+            return (cursor.rowcount or 0) > 0
+
     async def purge_expired_data(self, retention_days: int) -> dict[str, int]:
         """Remove records older than `retention_days` to enforce data governance."""
         cutoff_iso = (datetime.now(UTC) - timedelta(days=retention_days)).isoformat()
@@ -212,6 +311,7 @@ class Database:
                 ("chat_messages", "created_at"),
                 ("action_history", "created_at"),
                 ("sent_notifications", "sent_at"),
+                ("pending_confirmations", "created_at"),
             ):
                 cursor = await db.execute(
                     f"DELETE FROM {table} WHERE {ts_column} < ?",

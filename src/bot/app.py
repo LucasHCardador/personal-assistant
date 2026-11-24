@@ -30,6 +30,9 @@ def build_telegram_application(
     app.add_handler(CommandHandler("help", handlers.help_command))
     app.add_handler(CommandHandler("clear", handlers.clear_command))
     app.add_handler(CallbackQueryHandler(handlers.undo_callback, pattern=r"^undo:\d+$"))
+    app.add_handler(
+        CallbackQueryHandler(handlers.confirmation_callback, pattern=r"^(confirm|cancel):\d+$")
+    )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text_message))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handlers.voice_message))
     app.add_handler(MessageHandler(filters.PHOTO, handlers.photo_message))

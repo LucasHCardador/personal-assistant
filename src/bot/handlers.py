@@ -169,7 +169,22 @@ class BotHandlers:
             )
 
         reply_markup: InlineKeyboardMarkup | None = None
-        if reply.undo_action_id is not None:
+        if reply.pending_confirmation_id is not None:
+            reply_markup = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Confirmar",
+                            callback_data=f"confirm:{reply.pending_confirmation_id}",
+                        ),
+                        InlineKeyboardButton(
+                            "Cancelar",
+                            callback_data=f"cancel:{reply.pending_confirmation_id}",
+                        ),
+                    ]
+                ]
+            )
+        elif reply.undo_action_id is not None:
             reply_markup = InlineKeyboardMarkup(
                 [
                     [
@@ -218,14 +233,24 @@ class BotHandlers:
         result = await self._tool_executor.undo_action(user_id=user.id, action_id=action_id)
         if result.get("status") == "ok":
             await query.edit_message_reply_markup(reply_markup=None)
-            reply = AssistantStructuredReply(
-                intent="action_result",
-                summary="Lançamento desfeito com sucesso.",
-                details=[
-                    f"Aba: {result.get('worksheet', '-')}",
-                    f"ID removido: {result.get('record_id', '-')}",
-                ],
-            )
+            if result.get("target_system") == "google_calendar":
+                reply = AssistantStructuredReply(
+                    intent="action_result",
+                    summary="Evento removido da agenda com sucesso.",
+                    details=[
+                        f"Evento: {result.get('summary') or result.get('event_id', '-')}",
+                        f"ID removido: {result.get('event_id', '-')}",
+                    ],
+                )
+            else:
+                reply = AssistantStructuredReply(
+                    intent="action_result",
+                    summary="Lançamento desfeito com sucesso.",
+                    details=[
+                        f"Aba: {result.get('worksheet', '-')}",
+                        f"ID removido: {result.get('record_id', '-')}",
+                    ],
+                )
         elif result.get("status") == "not_found":
             await query.edit_message_reply_markup(reply_markup=None)
             reply = AssistantStructuredReply(
@@ -236,6 +261,93 @@ class BotHandlers:
             reply = AssistantStructuredReply(
                 intent="error",
                 summary="Não foi possível desfazer este lançamento.",
+                details=[str(result.get("error", "Erro desconhecido"))],
+            )
+
+        if query.message:
+            await query.message.reply_text(
+                format_structured_reply(reply), parse_mode=ParseMode.HTML
+            )
+
+    async def confirmation_callback(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """Handle inline 'Confirmar' and 'Cancelar' callbacks for pending actions."""
+        if not await ensure_authorized(update, self._allowed_user_ids):
+            return
+
+        query = update.callback_query
+        user = update.effective_user
+        if not query or not user or not query.data:
+            return
+
+        await query.answer()
+
+        if self._tool_executor is None:
+            reply = AssistantStructuredReply(
+                intent="error",
+                summary="O recurso de confirmação não está disponível no momento.",
+            )
+            if query.message:
+                await query.message.reply_text(
+                    format_structured_reply(reply), parse_mode=ParseMode.HTML
+                )
+            return
+
+        try:
+            action, raw_id = query.data.split(":", 1)
+            confirmation_id = int(raw_id)
+        except (IndexError, ValueError):
+            return
+
+        if action not in ("confirm", "cancel"):
+            return
+
+        result = await self._tool_executor.execute_pending_confirmation(
+            user_id=user.id,
+            confirmation_id=confirmation_id,
+            approve=(action == "confirm"),
+        )
+        status = result.get("status")
+
+        if status == "ok":
+            await query.edit_message_reply_markup(reply_markup=None)
+            if result.get("tool_name") == "create_calendar_event":
+                details = [
+                    f"Início: {result.get('start', '-')}",
+                    f"Término: {result.get('end', '-')}",
+                ]
+                if result.get("attendees"):
+                    details.append(f"Convidados: {', '.join(result['attendees'])}")
+                if result.get("meet_link"):
+                    details.append(f"Google Meet: {result['meet_link']}")
+                reply = AssistantStructuredReply(
+                    intent="action_result",
+                    summary=f"Evento confirmado e criado: {result.get('summary', '')}".strip(),
+                    details=details,
+                )
+            else:
+                reply = AssistantStructuredReply(
+                    intent="action_result",
+                    summary="Evento excluído da agenda com sucesso.",
+                    details=[f"ID removido: {result.get('event_id', '-')}"],
+                )
+        elif status == "cancelled":
+            await query.edit_message_reply_markup(reply_markup=None)
+            reply = AssistantStructuredReply(
+                intent="action_result",
+                summary="Ação cancelada. Nenhuma alteração foi feita na agenda.",
+            )
+        elif status in ("not_found", "already_resolved"):
+            await query.edit_message_reply_markup(reply_markup=None)
+            reply = AssistantStructuredReply(
+                intent="clarification",
+                summary="Esta solicitação já foi processada ou não está mais disponível.",
+            )
+        else:
+            reply = AssistantStructuredReply(
+                intent="error",
+                summary="Não foi possível processar a confirmação.",
                 details=[str(result.get("error", "Erro desconhecido"))],
             )
 

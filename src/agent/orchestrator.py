@@ -87,22 +87,30 @@ class AgentOrchestrator:
         system_prompt = build_system_prompt(self._timezone_name, has_tools=bool(tools))
 
         last_action_id: int | None = None
+        last_pending_confirmation_id: int | None = None
 
         if tools and self._tool_executor is not None:
             executor = self._tool_executor
 
             async def _call_tool(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
-                nonlocal last_action_id
+                nonlocal last_action_id, last_pending_confirmation_id
                 result = await executor.execute(
                     user_id=user_id,
                     tool_name=tool_name,
                     arguments=args,
                 )
-                if result.get("status") == "ok":
+                status = result.get("status")
+                if status == "ok":
                     if tool_name == "undo_last_action":
                         last_action_id = None
                     elif "action_id" in result and result["action_id"] is not None:
                         last_action_id = int(result["action_id"])
+                elif status == "confirmation_required":
+                    if (
+                        "pending_confirmation_id" in result
+                        and result["pending_confirmation_id"] is not None
+                    ):
+                        last_pending_confirmation_id = int(result["pending_confirmation_id"])
                 return result
 
             reply = await self._provider.generate_structured_reply(
@@ -122,6 +130,7 @@ class AgentOrchestrator:
             )
 
         reply.set_undo_action_id(last_action_id)
+        reply.set_pending_confirmation_id(last_pending_confirmation_id)
 
         # Persist only text turns (ephemeral media bytes are never stored)
         user_record = effective_text

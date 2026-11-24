@@ -57,6 +57,7 @@ class AssistantStructuredReply(BaseModel):
     )
 
     _undo_action_id: int | None = PrivateAttr(default=None)
+    _pending_confirmation_id: int | None = PrivateAttr(default=None)
 
     @property
     def undo_action_id(self) -> int | None:
@@ -66,3 +67,12 @@ class AssistantStructuredReply(BaseModel):
     def set_undo_action_id(self, action_id: int | None) -> None:
         """Attach an internal action_history ID without altering the JSON schema."""
         self._undo_action_id = action_id
+
+    @property
+    def pending_confirmation_id(self) -> int | None:
+        """Internal pending_confirmations ID when this reply awaits inline confirmation."""
+        return self._pending_confirmation_id
+
+    def set_pending_confirmation_id(self, confirmation_id: int | None) -> None:
+        """Attach an internal pending_confirmations ID without altering the JSON schema."""
+        self._pending_confirmation_id = confirmation_id

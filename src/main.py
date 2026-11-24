@@ -4,6 +4,8 @@ import logging
 import sys
 
 import gspread
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from telegram.ext import Application
 
 from src.agent.orchestrator import AgentOrchestrator
@@ -13,6 +15,7 @@ from src.agent.tools import ToolExecutor, ToolRegistry
 from src.bot.app import build_telegram_application
 from src.config import Settings, get_settings
 from src.integrations.google_auth import load_google_credentials
+from src.integrations.google_calendar import GoogleCalendarService
 from src.integrations.google_sheets import GoogleSheetsService
 from src.scheduler.housekeeping import build_housekeeping_scheduler
 from src.storage.database import Database
@@ -31,10 +34,41 @@ def configure_logging(level: str) -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
-def _build_sheets_service(
+def _load_google_credentials_if_available(
     settings: Settings, logger: logging.Logger
+) -> Credentials | None:
+    """Load Google OAuth credentials if `token.json` exists and is valid."""
+    if not settings.google_token_path.exists():
+        logger.warning(
+            "Google OAuth token not found at '%s'; Google integrations will be disabled. "
+            "Run 'python -m scripts.auth_google' to authorize.",
+            settings.google_token_path,
+        )
+        return None
+
+    try:
+        return load_google_credentials(
+            settings.google_credentials_path,
+            settings.google_token_path,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to load Google OAuth credentials (%s); "
+            "Google integrations will be disabled.",
+            exc,
+        )
+        return None
+
+
+def _build_sheets_service(
+    settings: Settings,
+    creds: Credentials | None,
+    logger: logging.Logger,
 ) -> GoogleSheetsService | None:
-    """Initialize GoogleSheetsService if OAuth token and spreadsheet IDs are configured."""
+    """Initialize GoogleSheetsService if credentials and spreadsheet IDs are configured."""
+    if creds is None:
+        return None
+
     if not settings.google_sheets_car_id and not settings.google_sheets_budget_id:
         logger.warning(
             "GOOGLE_SHEETS_CAR_ID and GOOGLE_SHEETS_BUDGET_ID are not configured; "
@@ -42,19 +76,7 @@ def _build_sheets_service(
         )
         return None
 
-    if not settings.google_token_path.exists():
-        logger.warning(
-            "Google OAuth token not found at '%s'; Google Sheets tools will be disabled. "
-            "Run 'python -m scripts.auth_google' to authorize.",
-            settings.google_token_path,
-        )
-        return None
-
     try:
-        creds = load_google_credentials(
-            settings.google_credentials_path,
-            settings.google_token_path,
-        )
         client = gspread.authorize(creds)
         return GoogleSheetsService(
             client=client,
@@ -66,6 +88,30 @@ def _build_sheets_service(
         logger.warning(
             "Failed to initialize Google Sheets integration (%s); "
             "Google Sheets tools will be disabled.",
+            exc,
+        )
+        return None
+
+
+def _build_calendar_service(
+    settings: Settings,
+    creds: Credentials | None,
+    logger: logging.Logger,
+) -> GoogleCalendarService | None:
+    """Initialize GoogleCalendarService if OAuth credentials are available."""
+    if creds is None:
+        return None
+
+    try:
+        service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+        return GoogleCalendarService(
+            service=service,
+            timezone_name=settings.timezone,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to initialize Google Calendar integration (%s); "
+            "Google Calendar tools will be disabled.",
             exc,
         )
         return None
@@ -91,13 +137,20 @@ def main() -> None:
     provider = create_llm_provider(settings)
     transcriber = create_audio_transcriber(settings)
 
-    sheets_service = _build_sheets_service(settings, logger)
+    google_creds = _load_google_credentials_if_available(settings, logger)
+    sheets_service = _build_sheets_service(settings, google_creds, logger)
+    calendar_service = _build_calendar_service(settings, google_creds, logger)
     tool_registry = ToolRegistry(
         enable_car_tools=bool(sheets_service and sheets_service.has_car_sheet),
         enable_budget_tools=bool(sheets_service and sheets_service.has_budget_sheet),
-        enable_undo_tool=bool(sheets_service),
+        enable_calendar_tools=calendar_service is not None,
+        enable_undo_tool=bool(sheets_service or calendar_service),
     )
-    tool_executor = ToolExecutor(database=database, sheets_service=sheets_service)
+    tool_executor = ToolExecutor(
+        database=database,
+        sheets_service=sheets_service,
+        calendar_service=calendar_service,
+    )
 
     orchestrator = AgentOrchestrator(
         provider=provider,

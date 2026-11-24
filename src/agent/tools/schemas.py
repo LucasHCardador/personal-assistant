@@ -96,3 +96,71 @@ class UndoActionInput(BaseModel):
         default=None,
         description="ID específico da ação a desfazer; se omitido, desfaz a última ação.",
     )
+
+
+class ListCalendarEventsInput(BaseModel):
+    """Input schema for listing events from Google Calendar."""
+
+    start_iso: str = Field(
+        description="Início do intervalo no formato ISO 8601 (ex: 2026-11-24T00:00:00-03:00)."
+    )
+    end_iso: str = Field(
+        description="Fim do intervalo no formato ISO 8601 (ex: 2026-11-24T23:59:59-03:00)."
+    )
+    query: str | None = Field(
+        default=None,
+        description="Termo opcional para filtrar eventos por título ou descrição.",
+    )
+
+
+class CreateCalendarEventInput(BaseModel):
+    """Input schema for creating a Google Calendar event."""
+
+    summary: str = Field(min_length=1, description="Título do compromisso ou reunião.")
+    start_iso: str = Field(
+        description="Data e hora de início no formato ISO 8601 (ex: 2026-11-24T14:00:00-03:00)."
+    )
+    end_iso: str = Field(
+        description="Data e hora de término no formato ISO 8601 (ex: 2026-11-24T15:00:00-03:00)."
+    )
+    description: str | None = Field(
+        default=None,
+        description="Descrição ou pauta do evento (opcional).",
+    )
+    location: str | None = Field(
+        default=None,
+        description="Local físico ou endereço (opcional).",
+    )
+    attendees: list[str] = Field(
+        default_factory=list,
+        description="Lista de e-mails de participantes convidados (opcional).",
+    )
+    create_meet: bool = Field(
+        default=False,
+        description="Se true, gera automaticamente um link de videoconferência do Google Meet.",
+    )
+
+
+class UpdateCalendarEventInput(BaseModel):
+    """Input schema for updating an existing Google Calendar event."""
+
+    event_id: str = Field(min_length=1, description="ID do evento no Google Calendar.")
+    summary: str | None = Field(default=None, description="Novo título do evento (opcional).")
+    start_iso: str | None = Field(
+        default=None, description="Nova data e hora de início ISO 8601 (opcional)."
+    )
+    end_iso: str | None = Field(
+        default=None, description="Nova data e hora de término ISO 8601 (opcional)."
+    )
+    description: str | None = Field(default=None, description="Nova descrição (opcional).")
+    location: str | None = Field(default=None, description="Novo local (opcional).")
+
+
+class DeleteCalendarEventInput(BaseModel):
+    """Input schema for deleting a Google Calendar event (always requires confirmation)."""
+
+    event_id: str = Field(min_length=1, description="ID do evento no Google Calendar.")
+    event_summary: str | None = Field(
+        default=None,
+        description="Título do evento para exibir no pedido de confirmação (opcional).",
+    )

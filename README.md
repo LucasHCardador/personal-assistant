@@ -129,7 +129,7 @@ python -m scripts.auth_google
 python -m scripts.setup_sheets
 ```
 
-Copie os valores `GOOGLE_SHEETS_CAR_ID` e `GOOGLE_SHEETS_BUDGET_ID` exibidos no terminal para o seu arquivo `.env`. Caso esses campos ainda não estejam preenchidos, o bot iniciará normalmente com as ferramentas de planilha desabilitadas.
+Copie os valores `GOOGLE_SHEETS_CAR_ID` e `GOOGLE_SHEETS_BUDGET_ID` exibidos no terminal para o seu arquivo `.env`. Caso esses campos ainda não estejam preenchidos, o bot iniciará normalmente com as ferramentas de planilha desabilitadas — enquanto as ferramentas de **Google Calendar e Google Meet** já ficam ativas automaticamente assim que o `credentials/token.json` estiver válido.
 
 ### 4. Rodar localmente (sem Docker)
 
