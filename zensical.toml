@@ -6,7 +6,8 @@ docs_dir = "docs"
 nav = [
     { "Início" = "index.md" },
     { "Fases do Projeto" = [
-        { "Fase 0 — Setup Inicial e Infraestrutura" = "phases/fase-0-setup.md" }
+        { "Fase 0 — Setup Inicial e Infraestrutura" = "phases/fase-0-setup.md" },
+        { "Fase 1 — Core do Bot, Multi-LLM e Governança" = "phases/fase-1-core-bot.md" }
     ] },
     { "Arquitetura (ADRs)" = [
         { "ADR-001 — Arquitetura e Viabilização" = "research/adr-001-arquitetura-e-viabilizacao.md" }
