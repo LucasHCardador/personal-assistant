@@ -1,11 +1,18 @@
 """Google Gemini provider with native multimodal (text, image, audio) & tool-calling support."""
 
+import asyncio
 import logging
+import random
 
 from google import genai
 from google.genai import errors, types
 
-from src.agent.providers.base import MAX_TOOL_ITERATIONS, BaseLLMProvider, ToolCaller
+from src.agent.providers.base import (
+    MAX_TOOL_ITERATIONS,
+    BaseLLMProvider,
+    ToolCaller,
+    TransientLLMError,
+)
 from src.agent.schemas import (
     AssistantStructuredReply,
     ChatMessage,
@@ -42,32 +49,44 @@ class GeminiProvider(BaseLLMProvider):
         contents: list[types.Content],
         config: types.GenerateContentConfig,
     ) -> types.GenerateContentResponse:
-        """Call Gemini async API with automatic fallback on transient errors."""
+        """Call Gemini async API with fallback models and backoff on transient errors."""
         last_error: Exception | None = None
-        for idx, model_name in enumerate(self._models):
-            try:
-                return await self._client.aio.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config=config,
-                )
-            except errors.APIError as exc:
-                last_error = exc
-                is_transient = exc.code in _TRANSIENT_STATUS_CODES
-                has_fallback = idx < len(self._models) - 1
-                if is_transient and has_fallback:
-                    logger.warning(
-                        "Gemini model '%s' returned %s; falling back to '%s'.",
-                        model_name,
-                        exc.code,
-                        self._models[idx + 1],
-                    )
-                    continue
-                raise
+        max_rounds = 2
 
-        if last_error is not None:
-            raise last_error
-        raise ValueError("No Gemini models configured.")
+        for round_idx in range(max_rounds):
+            for idx, model_name in enumerate(self._models):
+                try:
+                    return await self._client.aio.models.generate_content(
+                        model=model_name,
+                        contents=contents,
+                        config=config,
+                    )
+                except errors.APIError as exc:
+                    last_error = exc
+                    if exc.code not in _TRANSIENT_STATUS_CODES:
+                        raise
+
+                    has_next_model = idx < len(self._models) - 1
+                    if has_next_model:
+                        logger.warning(
+                            "Gemini model '%s' returned %s; falling back to '%s'.",
+                            model_name,
+                            exc.code,
+                            self._models[idx + 1],
+                        )
+                        continue
+
+            if round_idx < max_rounds - 1:
+                delay = 1.5 * (round_idx + 1) + random.uniform(0.0, 0.5)
+                logger.warning(
+                    "All Gemini models returned transient errors; retrying in %.1fs.",
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        raise TransientLLMError(
+            f"All Gemini models failed with transient error: {last_error}"
+        ) from last_error
 
     @staticmethod
     def _parse_structured_response(

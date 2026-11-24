@@ -15,6 +15,10 @@ ToolCaller = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 MAX_TOOL_ITERATIONS = 5
 
 
+class TransientLLMError(RuntimeError):
+    """Raised when the upstream LLM provider fails due to temporary overload/rate limits."""
+
+
 class BaseLLMProvider(ABC):
     """Unified contract for Gemini, Anthropic (Claude), and OpenAI-compatible models."""
 

@@ -7,6 +7,7 @@ from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
 from src.agent.orchestrator import AgentOrchestrator
+from src.agent.providers.base import TransientLLMError
 from src.agent.schemas import AssistantStructuredReply, MediaAttachment
 from src.agent.tools.executor import ToolExecutor
 from src.bot.formatters import (
@@ -159,6 +160,13 @@ class BotHandlers:
                 user_id=user_id,
                 text=text,
                 attachments=attachments,
+            )
+        except TransientLLMError as exc:
+            logger.warning("Transient LLM overload for user_id=%s: %s", user_id, exc)
+            reply = AssistantStructuredReply(
+                intent="error",
+                summary="Os servidores de IA estão temporariamente sobrecarregados.",
+                next_step_hint="Tente novamente em alguns segundos.",
             )
         except Exception as exc:
             logger.exception("Error processing message for user_id=%s: %s", user_id, exc)

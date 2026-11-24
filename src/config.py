@@ -27,9 +27,9 @@ class Settings(BaseSettings):
     # LLM Provider
     llm_provider: Literal["gemini", "anthropic", "openai_compatible"] = "gemini"
     llm_api_key: str = ""
-    llm_model: str = "gemini-3.1-flash-lite"
+    llm_model: str = "gemini-3.5-flash-lite"
     llm_fallback_models: Annotated[list[str], NoDecode] = Field(
-        default_factory=lambda: ["gemini-3.5-flash-lite"]
+        default_factory=lambda: ["gemini-3.1-flash-lite"]
     )
     llm_base_url: str | None = None
 
