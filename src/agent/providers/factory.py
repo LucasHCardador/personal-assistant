@@ -12,7 +12,11 @@ def create_llm_provider(settings: Settings) -> BaseLLMProvider:
     if settings.llm_provider == "gemini":
         if not settings.llm_api_key:
             raise ValueError("LLM_API_KEY is required when LLM_PROVIDER=gemini.")
-        return GeminiProvider(api_key=settings.llm_api_key, model=settings.llm_model)
+        return GeminiProvider(
+            api_key=settings.llm_api_key,
+            model=settings.llm_model,
+            fallback_models=settings.llm_fallback_models,
+        )
 
     if settings.llm_provider == "anthropic":
         if not settings.llm_api_key:

@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     llm_provider: Literal["gemini", "anthropic", "openai_compatible"] = "gemini"
     llm_api_key: str = ""
     llm_model: str = "gemini-3.1-flash-lite"
+    llm_fallback_models: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["gemini-3.5-flash-lite"]
+    )
     llm_base_url: str | None = None
 
     # Speech-to-Text (fallback for providers without native audio input)
@@ -62,6 +65,18 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [int(item) for item in value]
         raise ValueError("TELEGRAM_ALLOWED_USER_IDS must be a comma-separated list of integers.")
+
+    @field_validator("llm_fallback_models", mode="before")
+    @classmethod
+    def parse_fallback_models(cls, value: object) -> list[str]:
+        """Parse comma-separated fallback model names or a string list."""
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        raise ValueError("LLM_FALLBACK_MODELS must be a comma-separated list of model names.")
 
     @field_validator("llm_base_url", mode="before")
     @classmethod
