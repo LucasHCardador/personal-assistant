@@ -53,13 +53,14 @@ def test_format_appointments_text_matches_user_example() -> None:
 
 
 def test_format_audio_time_guidelines() -> None:
-    """Verify TTS time rules: full hours, ':30' as 'e meia', and other minutes as 'e MM'."""
-    assert format_audio_time("2026-11-25T07:00:00-03:00", TZ) == "Às 07 horas"
+    """Verify TTS time rules: no leading zero, full hours, ':30' as 'e meia', other minutes."""
+    assert format_audio_time("2026-11-25T07:00:00-03:00", TZ) == "Às 7 horas"
     assert format_audio_time("2026-11-25T13:00:00-03:00", TZ) == "Às 13 horas"
     assert format_audio_time("2026-11-25T20:00:00-03:00", TZ) == "Às 20 horas"
+    assert format_audio_time("2026-11-25T07:30:00-03:00", TZ) == "Às 7 e meia"
     assert format_audio_time("2026-11-25T16:30:00-03:00", TZ) == "Às 16 e meia"
     assert format_audio_time("2026-11-25T16:23:00-03:00", TZ) == "Às 16 e 23"
-    assert format_audio_time("2026-11-25T09:05:00-03:00", TZ) == "Às 09 e 5"
+    assert format_audio_time("2026-11-25T09:05:00-03:00", TZ) == "Às 9 e 5"
     assert format_audio_time("2026-11-25", TZ) == "Durante o dia todo"
 
 
@@ -141,7 +142,7 @@ async def test_send_daily_appointments_summary_dispatches_text_and_voice() -> No
     fake_calendar.list_events.assert_awaited_once()
     fake_tts.synthesize.assert_awaited_once()
     tts_input = fake_tts.synthesize.await_args.args[0]
-    assert "Às 07 horas, tomografia do Noah na Unimed Londrina." in tts_input
+    assert "Às 7 horas, tomografia do Noah na Unimed Londrina." in tts_input
     assert "Às 16 e meia, consulta do Davi em Clínica." in tts_input
 
     assert fake_bot.send_message.await_count == 2
