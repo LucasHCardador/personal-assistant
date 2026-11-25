@@ -13,6 +13,19 @@ services:
       - ./data:/app/data
       - ./credentials:/app/credentials
 
+  daily-appointments-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    container_name: personal-assistant-cron
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=${TIMEZONE:-UTC}
+    volumes:
+      - ./credentials:/app/credentials
+
   docs:
     image: zensical/zensical:latest
     container_name: personal-assistant-docs
