@@ -65,10 +65,10 @@ def format_audio_time(start_str: str, timezone_name: str) -> str:
         return "Durante o dia todo"
     local_dt = _parse_event_datetime(start_str, timezone_name)
     if local_dt.minute == 0:
-        return f"Às {local_dt.hour:02d} horas"
+        return f"Às {local_dt.hour} horas"
     if local_dt.minute == 30:
-        return f"Às {local_dt.hour:02d} e meia"
-    return f"Às {local_dt.hour:02d} e {local_dt.minute}"
+        return f"Às {local_dt.hour} e meia"
+    return f"Às {local_dt.hour} e {local_dt.minute}"
 
 
 def format_appointments_text(events: list[dict[str, Any]], timezone_name: str) -> str:
